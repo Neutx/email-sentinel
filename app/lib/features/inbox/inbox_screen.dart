@@ -5,6 +5,7 @@ import '../../core/network/api_exception.dart';
 import '../../core/theme/sentinel_colors.dart';
 import '../../core/theme/tokens.dart';
 import '../../core/utils/clock.dart';
+import '../../core/utils/guard.dart';
 import '../../core/utils/time_format.dart';
 import '../../data/models.dart';
 import '../../widgets/empty_state.dart';
@@ -60,7 +61,7 @@ class InboxScreen extends ConsumerWidget {
       },
       child: TabScaffold(
         title: 'Inbox',
-        onRefresh: controller.refresh,
+        onRefresh: () => guardAction(context, controller.refresh),
         actions: [
           IconButton(
             tooltip: 'Scan now',
@@ -206,28 +207,39 @@ class InboxScreen extends ConsumerWidget {
                         onChanged: controller.replace,
                       ),
                       onDone: () async {
-                        await controller.setDone(email, true);
-                        if (context.mounted) {
+                        final ok = await guardAction(
+                          context,
+                          () => controller.setDone(email, true),
+                        );
+                        if (ok && context.mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: const Text('Marked done'),
                               duration: const Duration(seconds: 5),
                               action: SnackBarAction(
                                 label: 'Undo',
-                                onPressed: () =>
-                                    controller.setDone(email, false),
+                                onPressed: () => guardAction(
+                                  context,
+                                  () => controller.setDone(email, false),
+                                ),
                               ),
                             ),
                           );
                         }
+                        return ok;
                       },
                       onReclassify: () async {
                         final selected = await showReclassifySheet(
                           context,
                           email.category,
                         );
-                        if (selected != null && selected != email.category) {
-                          await controller.reclassify(email, selected);
+                        if (selected != null &&
+                            selected != email.category &&
+                            context.mounted) {
+                          await guardAction(
+                            context,
+                            () => controller.reclassify(email, selected),
+                          );
                         }
                       },
                     ),

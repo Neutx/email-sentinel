@@ -17,7 +17,10 @@ class SwipeableEmailTile extends StatelessWidget {
 
   final EmailItem email;
   final VoidCallback onTap;
-  final Future<void> Function() onDone;
+
+  /// Returns true when the email was marked done; the tile only animates out
+  /// on success (on failure the controller has already restored it).
+  final Future<bool> Function() onDone;
   final Future<void> Function() onReclassify;
 
   @override
@@ -79,8 +82,7 @@ class SwipeableEmailTile extends StatelessWidget {
       },
       confirmDismiss: (direction) async {
         if (direction == DismissDirection.startToEnd) {
-          await onDone();
-          return true;
+          return onDone();
         } else if (direction == DismissDirection.endToStart) {
           await onReclassify();
           return false;

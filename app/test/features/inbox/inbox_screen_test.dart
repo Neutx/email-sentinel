@@ -76,4 +76,41 @@ void main() {
     expect(find.textContaining('Tailscale'), findsOneWidget);
     expect(find.text('Retry'), findsOneWidget);
   });
+
+  testWidgets('a failed done swipe keeps the tile and explains why', (
+    tester,
+  ) async {
+    await pumpInbox(tester, {
+      'GET /api/emails': const FakeResponse.fixture('email_page'),
+      'POST /api/emails/5/done': const FakeResponse({
+        'detail': 'boom',
+      }, status: 500),
+    });
+    await tester.drag(
+      find.byKey(const ValueKey('email-5')),
+      const Offset(600, 0),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Team lunch on Friday'), findsOneWidget);
+    expect(find.textContaining('Server error'), findsOneWidget);
+    expect(find.text('Undo'), findsNothing);
+  });
+
+  testWidgets('pull-to-refresh failure shows a message, not a crash', (
+    tester,
+  ) async {
+    final adapter = await pumpInbox(tester, {
+      'GET /api/emails': const FakeResponse.fixture('email_page'),
+    });
+    adapter.routes.remove('GET /api/emails');
+    await tester.fling(
+      find.text('Team lunch on Friday'),
+      const Offset(0, 600),
+      1000,
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(SnackBar), findsOneWidget);
+  });
 }
