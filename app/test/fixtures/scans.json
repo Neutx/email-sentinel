@@ -1,0 +1,19 @@
+[
+  {
+    "id": 1,
+    "trigger": "hermes-cron",
+    "status": "succeeded",
+    "started_at": "2026-09-28T17:08:17Z",
+    "finished_at": "2026-09-28T17:08:17Z",
+    "processed_count": 6,
+    "skipped_count": 2,
+    "summary": {
+      "processed": 6,
+      "trashed": 1,
+      "categories": {
+        "project_update": 2
+      }
+    },
+    "error": null
+  }
+]

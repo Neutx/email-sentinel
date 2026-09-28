@@ -1,0 +1,15 @@
+{
+  "total_emails_processed": 6,
+  "unsubscribed_count": 1,
+  "trashed_count": 1,
+  "project_updates_count": 2,
+  "notifications_sent_count": 0,
+  "open_actions_count": 2,
+  "categories": {
+    "general_fyi": 1,
+    "marketing_promo": 1,
+    "project_update": 2,
+    "transactional": 1,
+    "urgent_actionable": 1
+  }
+}

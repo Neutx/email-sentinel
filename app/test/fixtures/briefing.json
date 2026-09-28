@@ -1,0 +1,9 @@
+{
+  "id": 1,
+  "period": "morning",
+  "title": "Morning briefing",
+  "summary": "1 urgent item and 2 project updates.",
+  "body_markdown": "## Needs you\n- **Contract renewal** needs a signature today.\n\n## Projects\n- Murphy-Labs/core: PR #88 merged, CI failing on main.",
+  "source": "hermes",
+  "created_at": "2026-09-28T17:08:17Z"
+}

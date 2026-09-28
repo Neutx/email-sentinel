@@ -1,0 +1,54 @@
+{
+  "version": "0.2.0",
+  "server_time": "2026-09-28T17:08:17Z",
+  "mailbox": "ow***@example.com",
+  "llm_provider": "gemini",
+  "llm_model": "gemini-3.7-flash",
+  "scan_running": false,
+  "last_scan": {
+    "id": 1,
+    "trigger": "hermes-cron",
+    "status": "succeeded",
+    "started_at": "2026-09-28T17:08:17Z",
+    "finished_at": "2026-09-28T17:08:17Z",
+    "processed_count": 6,
+    "skipped_count": 2,
+    "summary": {
+      "processed": 6,
+      "trashed": 1,
+      "categories": {
+        "project_update": 2
+      }
+    },
+    "error": null
+  },
+  "latest_briefing_id": 1,
+  "settings": {
+    "dry_run": false,
+    "auto_unsubscribe": true,
+    "auto_delete_marketing": true,
+    "auto_mark_read_processed": true,
+    "notify_on_project_updates": true,
+    "notify_on_urgent": true,
+    "min_urgency_to_notify": 2,
+    "protected_domains": [
+      "github.com",
+      "accounts.google.com",
+      "paypal.com",
+      "stripe.com",
+      "apple.com",
+      "bank"
+    ],
+    "project_keywords": [
+      "murphy",
+      "deploy",
+      "release",
+      "pull request",
+      "issue",
+      "ticket",
+      "build",
+      "outage",
+      "incident"
+    ]
+  }
+}

@@ -1,0 +1,14 @@
+[
+  {
+    "id": 1,
+    "email_id": 6,
+    "sender_email": "deals@shop.com",
+    "domain": "shop.com",
+    "method": "rfc8058_post",
+    "target": "https://shop.com/unsub",
+    "http_status": 200,
+    "success": true,
+    "error_message": null,
+    "attempted_at": "2026-09-28T17:08:17Z"
+  }
+]

@@ -15,7 +15,7 @@ OUT = Path(__file__).resolve().parent.parent / "docs" / "api" / "openapi.json"
 
 def render() -> str:
     with tempfile.TemporaryDirectory() as tmp:
-        app = create_app(Settings(DB_PATH=str(Path(tmp) / "schema.db"), API_TOKEN="x" * 32))
+        app = create_app(Settings(_env_file=None, DB_PATH=str(Path(tmp) / "schema.db"), API_TOKEN="x" * 32))
         spec = app.openapi()
     return json.dumps(spec, indent=2, sort_keys=True) + "\n"
 
