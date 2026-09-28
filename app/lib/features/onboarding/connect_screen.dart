@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/config/connection_config.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/notifications/notification_service.dart';
 import '../../core/providers.dart';
 import '../../core/theme/sentinel_colors.dart';
 import '../../core/theme/tokens.dart';
@@ -40,6 +41,7 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
       await ref
           .read(connectionProvider.notifier)
           .connect(_url.text, _token.text);
+      await ref.read(notificationServiceProvider).requestPermission();
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.userMessage);
     } finally {

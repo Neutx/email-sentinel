@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/routes.dart';
 import '../../core/network/api_exception.dart';
+import '../../core/notifications/notification_service.dart';
 import '../../core/preferences/app_preferences.dart';
 import '../../core/providers.dart';
 import '../../core/theme/sentinel_colors.dart';
@@ -367,9 +368,16 @@ class _ControlScreenState extends ConsumerState<ControlScreen> {
                 ),
                 secondary: const Icon(Icons.notifications_active_outlined),
                 value: prefs.backgroundAlerts,
-                onChanged: (v) => ref
-                    .read(appPreferencesProvider.notifier)
-                    .setBackgroundAlerts(v),
+                onChanged: (v) async {
+                  await ref
+                      .read(appPreferencesProvider.notifier)
+                      .setBackgroundAlerts(v);
+                  if (v) {
+                    await ref
+                        .read(notificationServiceProvider)
+                        .requestPermission();
+                  }
+                },
               ),
               SwitchListTile(
                 title: const Text('Urgent emails'),

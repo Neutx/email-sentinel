@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
 
 import 'app/app.dart';
+import 'core/background/alert_poller.dart';
+import 'core/notifications/notification_service.dart';
 import 'core/preferences/app_preferences.dart';
 
 Future<void> main() async {
@@ -12,12 +15,28 @@ Future<void> main() async {
   // (Android 15+ enforces this; older versions need it requested).
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   final prefs = await SharedPreferences.getInstance();
+  // Background alerts and notifications are optional: a failure here must
+  // never prevent the app from starting.
+  final notificationService = NotificationService();
+  String? launchRoute;
+  try {
+    await Workmanager().initialize(callbackDispatcher);
+    launchRoute = await notificationService.initialize();
+  } catch (e, st) {
+    FlutterError.reportError(
+      FlutterErrorDetails(exception: e, stack: st, library: 'sentinel startup'),
+    );
+  }
+
   runApp(
     ProviderScope(
       // Screens own their retry UX (Retry buttons); no silent auto-retries.
       retry: (retryCount, error) => null,
-      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
-      child: const SentinelApp(),
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        notificationServiceProvider.overrideWithValue(notificationService),
+      ],
+      child: SentinelApp(launchRoute: launchRoute),
     ),
   );
 }

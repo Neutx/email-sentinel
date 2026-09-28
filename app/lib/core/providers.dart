@@ -1,8 +1,10 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../data/sentinel_repository.dart';
+import 'background/alert_poller.dart';
 import 'config/connection_config.dart';
 import 'network/api_client.dart';
+import 'preferences/app_preferences.dart';
 
 final connectionStoreProvider = Provider<ConnectionStore>(
   (ref) => ConnectionStore(),
@@ -28,6 +30,10 @@ class ConnectionController extends AsyncNotifier<ConnectionConfig?> {
     final repo = SentinelRepository(ref.read(apiClientFactoryProvider)(config));
     await repo.health();
     await repo.status(); // 401 here means the token is wrong
+    final previous = await ref.read(connectionStoreProvider).read();
+    if (previous?.baseUrl != config.baseUrl) {
+      await AlertCursorStore.reset(ref.read(sharedPreferencesProvider));
+    }
     await ref.read(connectionStoreProvider).save(config);
     state = AsyncData(config);
   }

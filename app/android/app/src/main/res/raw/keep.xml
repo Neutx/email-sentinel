@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- These drawables are referenced only from Dart (flutter_local_notifications),
+     which the release resource shrinker cannot see. Without this file the
+     notification icon is stripped and plugin initialisation throws. -->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@drawable/ic_stat_sentinel,@drawable/ic_launcher_foreground,@drawable/ic_launcher_monochrome" />
