@@ -4,11 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import '../core/config/connection_config.dart';
 import '../core/providers.dart';
+import '../features/briefing/briefing_history_screen.dart';
 import '../features/briefing/briefing_screen.dart';
 import '../features/control/control_screen.dart';
 import '../features/inbox/email_detail_sheet.dart';
 import '../features/inbox/inbox_screen.dart';
 import '../features/onboarding/connect_screen.dart';
+import '../features/projects/project_timeline_screen.dart';
 import '../features/projects/projects_screen.dart';
 import 'app_shell.dart';
 import 'routes.dart';
@@ -55,6 +57,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: Routes.briefing,
                 builder: (context, state) => const BriefingScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'history',
+                    builder: (context, state) => const BriefingHistoryScreen(),
+                  ),
+                ],
               ),
             ],
           ),
@@ -79,6 +87,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: Routes.projects,
                 builder: (context, state) => const ProjectsScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':name',
+                    builder: (context, state) => ProjectTimelineScreen(
+                      name: Uri.decodeComponent(state.pathParameters['name']!),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
