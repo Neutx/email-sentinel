@@ -57,9 +57,9 @@ void main() {
       'adding Example.COM  trims, lowercases, and sends PATCH with example.com',
       (tester) async {
         final initialSettings = fixtureMap('settings');
-        final currentList = (initialSettings['protected_domains']!
-                as List<Object?>)
-            .cast<String>();
+        final currentList =
+            (initialSettings['protected_domains']! as List<Object?>)
+                .cast<String>();
         final updatedSettings = Map<String, Object?>.from(initialSettings)
           ..['protected_domains'] = [...currentList, 'example.com'];
 
@@ -92,9 +92,9 @@ void main() {
 
     testWidgets('deleting a chip removes it and sends PATCH', (tester) async {
       final initialSettings = fixtureMap('settings');
-      final currentList = (initialSettings['protected_domains']!
-              as List<Object?>)
-          .cast<String>();
+      final currentList =
+          (initialSettings['protected_domains']! as List<Object?>)
+              .cast<String>();
       final updatedList = currentList.where((d) => d != 'stripe.com').toList();
       final updatedSettings = Map<String, Object?>.from(initialSettings)
         ..['protected_domains'] = updatedList;
@@ -142,10 +142,7 @@ void main() {
       await tester.tap(find.widgetWithText(FilledButton, 'Add'));
       await tester.pumpAndSettle();
 
-      expect(
-        adapter.requests.any((r) => r.method == 'PATCH'),
-        isFalse,
-      );
+      expect(adapter.requests.any((r) => r.method == 'PATCH'), isFalse);
     });
 
     testWidgets('add failure shows error snackbar', (tester) async {
@@ -200,9 +197,9 @@ void main() {
       tester,
     ) async {
       final initialSettings = fixtureMap('settings');
-      final currentList = (initialSettings['project_keywords']!
-              as List<Object?>)
-          .cast<String>();
+      final currentList =
+          (initialSettings['project_keywords']! as List<Object?>)
+              .cast<String>();
       final updatedSettings = Map<String, Object?>.from(initialSettings)
         ..['project_keywords'] = [...currentList, 'hotfix'];
 

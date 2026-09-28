@@ -52,9 +52,7 @@ void main() {
       expect(find.byIcon(Icons.check_circle_rounded), findsOneWidget);
     });
 
-    testWidgets('renders empty state when no unsubscribe logs', (
-      tester,
-    ) async {
+    testWidgets('renders empty state when no unsubscribe logs', (tester) async {
       final adapter = FakeAdapter({
         'GET /api/unsubscribes': const FakeResponse(<Object>[]),
       });
