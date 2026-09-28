@@ -10,6 +10,7 @@ import '../features/control/control_screen.dart';
 import '../features/inbox/email_detail_sheet.dart';
 import '../features/inbox/inbox_screen.dart';
 import '../features/onboarding/connect_screen.dart';
+import '../features/projects/project_timeline_screen.dart';
 import '../features/projects/projects_screen.dart';
 import 'app_shell.dart';
 import 'routes.dart';
@@ -86,6 +87,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: Routes.projects,
                 builder: (context, state) => const ProjectsScreen(),
+                routes: [
+                  GoRoute(
+                    path: ':name',
+                    builder: (context, state) => ProjectTimelineScreen(
+                      name: Uri.decodeComponent(state.pathParameters['name']!),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
