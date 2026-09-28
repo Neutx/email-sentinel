@@ -83,19 +83,31 @@ class _BriefingCardState extends ConsumerState<BriefingCard> {
             Text(briefing.title, style: context.text.titleLarge),
             const SizedBox(height: Space.s2),
             if (!_expanded && hasLongBody)
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 280),
-                child: ShaderMask(
-                  shaderCallback: (Rect bounds) {
-                    return const LinearGradient(
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                      colors: [Colors.black, Colors.black, Colors.transparent],
-                      stops: [0.0, 0.7, 1.0],
-                    ).createShader(bounds);
-                  },
-                  blendMode: BlendMode.dstIn,
-                  child: MarkdownBody(data: briefing.bodyMarkdown),
+              // Collapsed: show the top ~280 dp and fade out. The body lays
+              // out at full height inside a non-scrolling viewport and is
+              // clipped, so it can never paint over the sections below.
+              ClipRect(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 280),
+                  child: ShaderMask(
+                    shaderCallback: (Rect bounds) {
+                      return const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black,
+                          Colors.black,
+                          Colors.transparent,
+                        ],
+                        stops: [0.0, 0.7, 1.0],
+                      ).createShader(bounds);
+                    },
+                    blendMode: BlendMode.dstIn,
+                    child: SingleChildScrollView(
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: MarkdownBody(data: briefing.bodyMarkdown),
+                    ),
+                  ),
                 ),
               )
             else

@@ -121,9 +121,11 @@ class _ProjectCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final count = project.updateCount;
+    final updates = '$count ${count == 1 ? 'update' : 'updates'}';
     final metaText = project.lastUpdateAt != null
-        ? '${project.updateCount} updates · ${relativeTime(project.lastUpdateAt!, now)}'
-        : '${project.updateCount} updates';
+        ? '$updates · ${relativeTime(project.lastUpdateAt!, now)}'
+        : updates;
 
     return Card(
       clipBehavior: Clip.antiAlias,
