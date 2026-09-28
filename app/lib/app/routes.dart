@@ -8,7 +8,12 @@ abstract final class Routes {
   static const inbox = '/inbox';
   static const projects = '/projects';
   static const control = '/control';
+  static const controlUnsubscribes = '/control/unsubscribes';
+  static const controlScans = '/control/scans';
+  static const controlListProtected = '/control/lists/protected';
+  static const controlListKeywords = '/control/lists/keywords';
 
+  static String controlLists(String kind) => '/control/lists/$kind';
   static String email(int id) => '/inbox/email/$id';
   static String project(String name) =>
       '/projects/${Uri.encodeComponent(name)}';
