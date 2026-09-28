@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  The Sentinel API is reached over Tailscale (WireGuard-encrypted), so plain HTTP is
+  allowed ONLY for tailnet hosts. Everything else must be HTTPS.
+  If you enable HTTPS certificates in the Tailscale admin console, switch the app's
+  server URL to https:// and this exception becomes unnecessary.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false" />
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">ts.net</domain>
+        <domain includeSubdomains="false">100.125.243.21</domain>
+    </domain-config>
+</network-security-config>
