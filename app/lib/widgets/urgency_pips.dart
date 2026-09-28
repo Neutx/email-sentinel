@@ -20,6 +20,7 @@ class UrgencyPips extends StatelessWidget {
     final unfilledColor = context.colors.outlineVariant;
 
     return Semantics(
+      container: true,
       label: 'Urgency $urgency of 5',
       child: ExcludeSemantics(
         child: Row(
