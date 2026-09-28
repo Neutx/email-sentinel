@@ -7,6 +7,9 @@ import '../core/providers.dart';
 import '../features/briefing/briefing_history_screen.dart';
 import '../features/briefing/briefing_screen.dart';
 import '../features/control/control_screen.dart';
+import '../features/control/lists_editor_screen.dart';
+import '../features/control/scan_history_screen.dart';
+import '../features/control/unsubscribe_history_screen.dart';
 import '../features/inbox/email_detail_sheet.dart';
 import '../features/inbox/inbox_screen.dart';
 import '../features/onboarding/connect_screen.dart';
@@ -103,6 +106,27 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: Routes.control,
                 builder: (context, state) => const ControlScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'lists/:kind',
+                    builder: (context, state) {
+                      final kindParam = state.pathParameters['kind'];
+                      final kind = kindParam == 'keywords'
+                          ? ListKind.keywords
+                          : ListKind.protected;
+                      return ListsEditorScreen(kind: kind);
+                    },
+                  ),
+                  GoRoute(
+                    path: 'unsubscribes',
+                    builder: (context, state) =>
+                        const UnsubscribeHistoryScreen(),
+                  ),
+                  GoRoute(
+                    path: 'scans',
+                    builder: (context, state) => const ScanHistoryScreen(),
+                  ),
+                ],
               ),
             ],
           ),

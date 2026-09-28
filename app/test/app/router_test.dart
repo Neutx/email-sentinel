@@ -25,5 +25,10 @@ void main() {
     expect(redirectFor(connected, Routes.splash), Routes.briefing);
     expect(redirectFor(connected, Routes.connect), Routes.briefing);
     expect(redirectFor(connected, Routes.projects), isNull);
+    expect(redirectFor(connected, Routes.control), isNull);
+    expect(redirectFor(connected, Routes.controlListProtected), isNull);
+    expect(redirectFor(connected, Routes.controlListKeywords), isNull);
+    expect(redirectFor(connected, Routes.controlUnsubscribes), isNull);
+    expect(redirectFor(connected, Routes.controlScans), isNull);
   });
 }

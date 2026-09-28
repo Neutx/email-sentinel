@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sentinel/data/models.dart';
 import 'package:sentinel/data/providers.dart';
 
 import '../helpers/fake_api.dart';
@@ -98,5 +99,25 @@ void main() {
     final projects = await c.read(projectsProvider.future);
     expect(projects, hasLength(1));
     expect(projects.first.name, 'Murphy-Labs/core');
+  });
+
+  test('unsubscribesProvider fetches unsubscribe logs', () async {
+    final adapter = FakeAdapter({
+      'GET /api/unsubscribes': const FakeResponse.fixture('unsubscribes'),
+    });
+    final c = await containerWith(adapter);
+    final list = await c.read(unsubscribesProvider.future);
+    expect(list, hasLength(1));
+    expect(list.first.senderEmail, 'deals@shop.com');
+  });
+
+  test('scansProvider fetches scan runs', () async {
+    final adapter = FakeAdapter({
+      'GET /api/scans': const FakeResponse.fixture('scans'),
+    });
+    final c = await containerWith(adapter);
+    final list = await c.read(scansProvider.future);
+    expect(list, hasLength(1));
+    expect(list.first.status, ScanStatus.succeeded);
   });
 }

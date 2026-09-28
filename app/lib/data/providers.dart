@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../core/providers.dart';
 import 'models.dart';
@@ -41,3 +42,17 @@ final projectUpdatesProvider =
       await ref.watch(connectionProvider.future);
       return ref.watch(repositoryProvider).projectUpdates(name);
     });
+
+final unsubscribesProvider = FutureProvider<List<UnsubscribeLog>>((ref) async {
+  await ref.watch(connectionProvider.future);
+  return ref.watch(repositoryProvider).unsubscribes();
+});
+
+final scansProvider = FutureProvider<List<ScanRun>>((ref) async {
+  await ref.watch(connectionProvider.future);
+  return ref.watch(repositoryProvider).scans();
+});
+
+final packageInfoProvider = FutureProvider<PackageInfo>((ref) async {
+  return PackageInfo.fromPlatform();
+});
