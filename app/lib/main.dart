@@ -1,19 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-// Placeholder entry point. Hermes replaces this in Phase 1 of
-// docs/plans/2026-09-28-sentinel-mobile-plan.md.
-void main() {
-  runApp(const SentinelApp());
-}
+import 'app/app.dart';
+import 'core/preferences/app_preferences.dart';
 
-class SentinelApp extends StatelessWidget {
-  const SentinelApp({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      title: 'Sentinel',
-      home: Scaffold(body: Center(child: Text('Sentinel'))),
-    );
-  }
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  runApp(
+    ProviderScope(
+      // Screens own their retry UX (Retry buttons); no silent auto-retries.
+      retry: (retryCount, error) => null,
+      overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      child: const SentinelApp(),
+    ),
+  );
 }

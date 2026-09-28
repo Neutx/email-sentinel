@@ -1,0 +1,30 @@
+[
+  {
+    "id": 2,
+    "email_id": 3,
+    "project_name": "Murphy-Labs/core",
+    "sender": "Notifications <notifications@github.com>",
+    "subject": "[Murphy-Labs/core] CI failed on main",
+    "summary": "Summary of: [Murphy-Labs/core] CI failed on main",
+    "urgency": 4,
+    "action_required": true,
+    "action_description": "Review and respond",
+    "received_at": "2026-09-28T08:03:00+00:00",
+    "is_done": false,
+    "created_at": "2026-09-28T17:08:17Z"
+  },
+  {
+    "id": 1,
+    "email_id": 2,
+    "project_name": "Murphy-Labs/core",
+    "sender": "Notifications <notifications@github.com>",
+    "subject": "[Murphy-Labs/core] Pull request #88 merged",
+    "summary": "Summary of: [Murphy-Labs/core] Pull request #88 merged",
+    "urgency": 3,
+    "action_required": false,
+    "action_description": null,
+    "received_at": "2026-09-28T08:02:00+00:00",
+    "is_done": false,
+    "created_at": "2026-09-28T17:08:17Z"
+  }
+]

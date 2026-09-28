@@ -443,6 +443,21 @@ def briefing_context(
     sys.stdout.write(json.dumps(db.get_briefing_context(hours=hours), indent=2, default=str) + "\n")
 
 
+def _repair_mojibake(text: str) -> str:
+    """Undo UTF-8 text that was mis-decoded as cp1252 on its way to disk (e.g. 'â€”' -> '—').
+
+    Windows shells default to ANSI encodings; agents writing the briefing file can
+    double-encode punctuation. Only applied when the telltale sequences are present
+    and the round trip is lossless.
+    """
+    if "â€" not in text and "Ã" not in text:
+        return text
+    try:
+        return text.encode("cp1252").decode("utf-8")
+    except UnicodeError:
+        return text
+
+
 @briefing_app.command("save")
 def briefing_save(
     file: Path = typer.Option(..., "--file", "-f", exists=True, readable=True, help="JSON file to store"),
@@ -453,7 +468,7 @@ def briefing_save(
     from email_sentinel.schemas import BriefingCreate
 
     try:
-        req = BriefingCreate.model_validate_json(file.read_text(encoding="utf-8"))
+        req = BriefingCreate.model_validate_json(_repair_mojibake(file.read_text(encoding="utf-8-sig")))
     except ValidationError as e:
         console.print(f"[red]Invalid briefing JSON:[/red]\n{e}")
         raise typer.Exit(1) from None

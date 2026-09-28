@@ -1,161 +1,62 @@
-# 🛡️ Email Sentinel
+# Email Sentinel
 
-**Autonomous AI Email Watcher, Unsubscriber & Project Updates Notifier**
+Autonomous email triage for Murphy Labs: a Python backend that classifies incoming Gmail with Gemini, unsubscribes from and trashes marketing, captures project updates, and serves a token-protected API to **Sentinel**, the Android app. Hermes Agent operates it 24/7 (scans, watchdog, daily briefings).
 
-Email Sentinel monitors your inbox in real time, automatically classifies incoming emails with AI and rules, unsubscribes from and deletes marketing/promo clutter, captures important project updates into a local SQLite database, and alerts you instantly via **WhatsApp**, **Telegram**, **Discord**, or **Slack**.
+| Part | Where | Docs |
+|---|---|---|
+| Backend (FastAPI, SQLite, IMAP) | `email_sentinel/` | this file, [`docs/api/API.md`](docs/api/API.md) |
+| Android app (Flutter) | `app/` | [`docs/PRD.md`](docs/PRD.md), [`docs/design/DESIGN_BRIEF.md`](docs/design/DESIGN_BRIEF.md) |
+| Hermes integration (cron scripts, skills, installer) | `hermes/` | [`docs/ops/RUNBOOK.md`](docs/ops/RUNBOOK.md) |
+| Build plan for agents | `docs/plans/` | [`AGENTS.md`](AGENTS.md) |
 
----
-
-## ⚡ Key Features
-
-- 🧠 **Dual-Layer Intelligence**: High-speed header heuristics combined with LLM triage (OpenRouter, OpenAI, Gemini, Claude, or local Ollama).
-- 🚫 **Automated Unsubscribe Pipeline**:
-  - **RFC 8058 One-Click POST**: Fast server-to-server POST unsubscriptions.
-  - **RFC 2369 Mailto**: Automated unsubscribe email handler.
-  - **HTML Link Extractor & Crawler**: Discovers and visits hidden `opt-out` / `unsubscribe` links.
-- 🗑️ **Auto-Trash & Delete**: Moves marketing spam directly to Trash to keep your inbox at zero.
-- 📁 **Project Updates Knowledge Base**: Automatically extracts updates from GitHub, Jira, Linear, CI/CD, clients, and teammates, and indexes them in SQLite (`sentinel.db`).
-- 🔔 **Multi-Channel Instant Notifications**:
-  - **WhatsApp**: Free 1-click integration via CallMeBot, Twilio WhatsApp, or custom webhooks.
-  - **Telegram**: Rich HTML alerts via Telegram Bot API.
-  - **Discord / Slack**: Webhook embeds.
-- 🛡️ **Zero-Loss Safety Guardrails**: Domain allowlists and dry-run mode prevent accidentally unsubscribing from critical accounts (banking, GitHub, internal services).
-
----
-
-## 🏗️ Architecture
+## How it works
 
 ```
-Incoming Email (IMAP IDLE / Poll / Gmail)
-                    │
-                    ▼
-          ┌───────────────────┐
-          │  Safety Allowlist │──[ Protected Domain? ]──► Keep Safe in Inbox
-          └───────────────────┘
-                    │
-                    ▼
-          ┌───────────────────┐
-          │ Layered Triage &  │
-          │  Classification   │
-          └───────────────────┘
-            /       |       \
-           /        |        \
-          ▼         ▼         ▼
-  [Marketing/Promo] [Project Update] [Urgent / Actionable]
-         │                 │                 │
-         ├─► Auto-Unsub    ├─► Store in DB   ├─► High-Priority Alert
-         │   (RFC8058/URL) ├─► WhatsApp/TG   ├─► WhatsApp / Telegram
-         └─► Move to Trash └─► Mark as Read  └─► Mark as Read
+Gmail ──IMAP (UIDs, BODY.PEEK)──► scan (every 5 min, Hermes cron)
+                                   ├─ protected-domain allowlist
+                                   ├─ Gemini 3.7 flash classification (rules fallback)
+                                   ├─ marketing/spam → RFC 8058 unsubscribe → Trash
+                                   ├─ project update → project board + alert
+                                   └─ urgent → alert
+SQLite ◄──────────────────────────┘
+   ▲
+FastAPI /api/* (Tailscale IP, Bearer token) ◄── Sentinel app (feed, actions, briefings, controls)
+   ▲
+Hermes briefing job (08:00/18:00) writes Markdown briefings
 ```
 
----
+## Install the app
 
-## 🚀 Quick Start
+1. Install **Tailscale** on the phone and sign in to the same tailnet as the PC.
+2. Download the latest APK from [Releases](https://github.com/Neutx/email-sentinel/releases) (`…-arm64-v8a.apk` for modern phones, or `…-universal.apk`).
+3. Open the app → enter the server URL (pre-filled) and the API token (`SENTINEL_API_TOKEN` in the PC's `.env`) → **Test & connect**.
 
-### 1. Installation
+Every merge to `main` publishes a new signed build that installs over the previous one.
 
-Using `uv` (recommended) or standard `pip`:
+## Backend quick start (developer)
 
-```bash
-cd "D:/Murphy Labs/email-sentinel"
+```powershell
 uv sync
+uv run email-sentinel config-init        # creates .env from the template, then edit it
+uv run email-sentinel scan --dry-run -n 5
+uv run email-sentinel serve              # API on SENTINEL_API_HOST:SENTINEL_API_PORT
+powershell -ExecutionPolicy Bypass -File hermes\install.ps1   # production: task + Hermes jobs
 ```
 
-### 2. Configure Credentials
+CLI: `scan [--json] [--dry-run] [--all]`, `serve`, `watch`, `audit`, `projects`, `unsub-history`, `stats`, `test-notify`, `briefing context|save`, `config-init`.
 
-Initialize your `.env` configuration file:
+## Safety
 
-```bash
-uv run email-sentinel config-init
-```
+- Dry-run mode (app → Control) simulates every destructive action; dry-run results are re-processed for real once it's switched off.
+- Protected senders/domains are never unsubscribed or trashed (editable in the app).
+- Trashed mail can be restored from the app; Gmail keeps Trash for 30 days.
+- The API listens only on the Tailscale interface and requires a bearer token.
 
-Edit `.env` to configure your mailbox and alert channels:
+## Development
 
-```env
-# Mailbox Credentials (e.g., Gmail with App Password)
-SENTINEL_IMAP_HOST=imap.gmail.com
-SENTINEL_IMAP_PORT=993
-SENTINEL_IMAP_USER=your_email@gmail.com
-SENTINEL_IMAP_PASSWORD=your_16_char_app_password
-
-# Automated Actions
-SENTINEL_AUTO_UNSUBSCRIBE=true
-SENTINEL_AUTO_DELETE_MARKETING=true
-SENTINEL_DRY_RUN=false
-
-# WhatsApp Alerts (CallMeBot: Free & 1-minute setup)
-SENTINEL_WHATSAPP_ENABLED=true
-SENTINEL_WHATSAPP_PROVIDER=callmebot
-SENTINEL_CALLMEBOT_PHONE=919876543210
-SENTINEL_CALLMEBOT_API_KEY=123456
-
-# Or Telegram Alerts
-SENTINEL_TELEGRAM_ENABLED=false
-SENTINEL_TELEGRAM_BOT_TOKEN=your_bot_token
-SENTINEL_TELEGRAM_CHAT_ID=your_chat_id
-```
-
-> **How to get a Gmail App Password:**
-> 1. Go to Google Account Settings → **Security** → **2-Step Verification**.
-> 2. Scroll to the bottom and click **App passwords**.
-> 3. Create a password named `Email Sentinel` and paste the 16-character string into `SENTINEL_IMAP_PASSWORD`.
-
-> **How to get free WhatsApp alerts via CallMeBot:**
-> 1. Add `+34 644 10 55 84` to your WhatsApp contacts (name it "CallMeBot").
-> 2. Send the message: `I allow callmebot to send me messages` to the bot on WhatsApp.
-> 3. The bot will reply with your API key. Put your phone number (country code without `+`) and API key in `.env`.
-
----
-
-## 🛠️ CLI Usage
-
-### Test Notifications
-Verify WhatsApp / Telegram / Discord connectivity:
-```bash
-uv run email-sentinel test-notify --title "Deployment Complete" --body "Murphy Labs v1.0.0 is live" --project "Murphy Labs"
-```
-
-### Run a One-Shot Inbox Scan
-Triage the last 20 unread emails:
-```bash
-uv run email-sentinel scan --limit 20
-```
-
-Run in dry-run mode (simulate without moving or unsubscribing):
-```bash
-uv run email-sentinel scan --limit 10 --dry-run
-```
-
-### Run the Continuous Real-Time Watcher Daemon
-Monitors your inbox with IMAP IDLE for instant reaction to incoming mail:
-```bash
-uv run email-sentinel watch
-```
-
-### Query Project Updates
-View all updates captured from your emails:
-```bash
-uv run email-sentinel projects
-uv run email-sentinel projects --name "Murphy Labs"
-```
-
-### Audit Unsubscribe History
-See exactly which senders were unsubscribed and their HTTP response status:
-```bash
-uv run email-sentinel unsub-history
-```
-
-### View Sentinel Stats & Triage Counts
-```bash
-uv run email-sentinel stats
-```
-
----
-
-## 🧪 Testing
-
-Run the full test suite with:
-
-```bash
-uv run pytest -v
+```powershell
+uv run ruff check email_sentinel tests scripts; uv run pytest -q
+uv run python scripts/export_openapi.py        # after any API change (CI checks drift)
+uv run python scripts/export_app_fixtures.py   # refresh app test fixtures from the real API
+cd app; flutter analyze --fatal-infos; flutter test
 ```

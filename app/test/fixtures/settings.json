@@ -1,0 +1,28 @@
+{
+  "dry_run": false,
+  "auto_unsubscribe": true,
+  "auto_delete_marketing": true,
+  "auto_mark_read_processed": true,
+  "notify_on_project_updates": true,
+  "notify_on_urgent": true,
+  "min_urgency_to_notify": 2,
+  "protected_domains": [
+    "github.com",
+    "accounts.google.com",
+    "paypal.com",
+    "stripe.com",
+    "apple.com",
+    "bank"
+  ],
+  "project_keywords": [
+    "murphy",
+    "deploy",
+    "release",
+    "pull request",
+    "issue",
+    "ticket",
+    "build",
+    "outage",
+    "incident"
+  ]
+}
