@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/config/connection_config.dart';
 import '../core/providers.dart';
+import '../features/briefing/briefing_history_screen.dart';
 import '../features/briefing/briefing_screen.dart';
 import '../features/control/control_screen.dart';
 import '../features/inbox/email_detail_sheet.dart';
@@ -55,6 +56,12 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: Routes.briefing,
                 builder: (context, state) => const BriefingScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'history',
+                    builder: (context, state) => const BriefingHistoryScreen(),
+                  ),
+                ],
               ),
             ],
           ),
