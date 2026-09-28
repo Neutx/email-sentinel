@@ -17,6 +17,16 @@ Android phone (Tailscale) ── http://desktop-h4gp2e6.tail87425d.ts.net:8765 �
    WorkManager every ~15 min → /api/alerts → local notifications
 ```
 
+## Deploy (production runs from a separate checkout)
+
+Production — the API task and the Hermes cron scripts — runs from `D:\Murphy Labs\email-sentinel-live`, a detached worktree pinned to `origin/main`. The dev checkout (`D:\Murphy Labs\email-sentinel`) is where agents switch branches; production never runs from it.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File "D:\Murphy Labs\email-sentinel\hermes\deploy.ps1"   # after backend merges
+```
+
+It fetches, moves the live checkout to `origin/main`, `uv sync`s, reinstalls scripts/skills pointing at the live path, and restarts the API. Secrets live in `D:\Murphy Labs\email-sentinel-live\.env` (seeded once from the dev `.env`).
+
 ## Install / update (idempotent)
 
 ```powershell
@@ -29,7 +39,7 @@ powershell -ExecutionPolicy Bypass -File hermes\install.ps1 -SkipCron -DesignSki
 
 The installer targets the active Hermes profile (`%LOCALAPPDATA%\hermes\active_profile`, currently `devta`). Re-running it updates scripts/skills and skips cron jobs that already exist.
 
-## Configuration (`.env`, never committed)
+## Configuration (`email-sentinel-live\.env`, never committed)
 
 | Key | Purpose |
 |---|---|

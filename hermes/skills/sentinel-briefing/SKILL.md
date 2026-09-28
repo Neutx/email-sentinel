@@ -1,7 +1,7 @@
 ---
 name: sentinel-briefing
 description: Write and save the Sentinel morning/evening inbox briefing.
-version: 0.2.0
+version: 0.3.0
 author: Neutx (Murphy Labs)
 license: MIT
 platforms: [windows]
@@ -56,7 +56,7 @@ Rules:
 2. Run exactly:
 
    ```powershell
-   uv run --project "D:\Murphy Labs\email-sentinel" --quiet email-sentinel briefing save --file "$env:TEMP\sentinel-briefing.json"
+   uv run --project "D:\Murphy Labs\email-sentinel-live" --quiet email-sentinel briefing save --file "$env:TEMP\sentinel-briefing.json"
    ```
 
 3. Expect `{"status": "saved", "id": N}`. On a validation error, fix the JSON (field lengths: title ≤ 200, summary ≤ 500, body ≤ 20000) and retry once.
