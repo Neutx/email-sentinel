@@ -25,125 +25,108 @@ final _allRoutes = {
 
 void main() {
   group('Accessibility & 200% Text Scaling Pass', () {
-    testWidgets('Briefing screen scales to 200% text in dark theme without overflow', (
-      tester,
-    ) async {
-      final overrides = await testOverrides(
-        adapter: FakeAdapter(_allRoutes),
-        connection: testConfig,
-      );
+    testWidgets(
+      'Briefing screen scales to 200% text in dark theme without overflow',
+      (tester) async {
+        final overrides = await testOverrides(
+          adapter: FakeAdapter(_allRoutes),
+          connection: testConfig,
+        );
 
-      await tester.pumpWidget(
-        MediaQuery(
-          data: const MediaQueryData(
-            size: Size(390, 844),
-            textScaler: TextScaler.linear(2.0),
+        await pumpScreen(
+          tester,
+          const MediaQuery(
+            data: MediaQueryData(
+              size: Size(390, 844),
+              textScaler: TextScaler.linear(2.0),
+            ),
+            child: BriefingScreen(),
           ),
-          child: Builder(
-            builder: (context) {
-              return SizedBox(
-                width: 390,
-                height: 844,
-                child: FutureBuilder(
-                  future: Future.value(true),
-                  builder: (_, __) => const SizedBox(),
-                ),
-              );
-            },
+          overrides: overrides,
+          themeMode: ThemeMode.dark,
+        );
+
+        expect(tester.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
+      'Inbox screen scales to 200% text and meets tap target guidelines',
+      (tester) async {
+        final overrides = await testOverrides(
+          adapter: FakeAdapter(_allRoutes),
+          connection: testConfig,
+        );
+
+        await pumpScreen(
+          tester,
+          const MediaQuery(
+            data: MediaQueryData(
+              size: Size(390, 844),
+              textScaler: TextScaler.linear(2.0),
+            ),
+            child: InboxScreen(),
           ),
-        ),
-      );
+          overrides: overrides,
+          themeMode: ThemeMode.dark,
+        );
 
-      await pumpScreen(
-        tester,
-        const MediaQuery(
-          data: MediaQueryData(
-            size: Size(390, 844),
-            textScaler: TextScaler.linear(2.0),
+        expect(tester.takeException(), isNull);
+        await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+        await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+      },
+    );
+
+    testWidgets(
+      'Projects screen scales to 200% text in dark theme without overflow',
+      (tester) async {
+        final overrides = await testOverrides(
+          adapter: FakeAdapter(_allRoutes),
+          connection: testConfig,
+        );
+
+        await pumpScreen(
+          tester,
+          const MediaQuery(
+            data: MediaQueryData(
+              size: Size(390, 844),
+              textScaler: TextScaler.linear(2.0),
+            ),
+            child: ProjectsScreen(),
           ),
-          child: BriefingScreen(),
-        ),
-        overrides: overrides,
-        themeMode: ThemeMode.dark,
-      );
+          overrides: overrides,
+          themeMode: ThemeMode.dark,
+        );
 
-      expect(tester.takeException(), isNull);
-    });
+        expect(tester.takeException(), isNull);
+      },
+    );
 
-    testWidgets('Inbox screen scales to 200% text and meets tap target guidelines', (
-      tester,
-    ) async {
-      final overrides = await testOverrides(
-        adapter: FakeAdapter(_allRoutes),
-        connection: testConfig,
-      );
+    testWidgets(
+      'Control screen scales to 200% text and meets tap target guidelines',
+      (tester) async {
+        final overrides = await testOverrides(
+          adapter: FakeAdapter(_allRoutes),
+          connection: testConfig,
+        );
 
-      await pumpScreen(
-        tester,
-        const MediaQuery(
-          data: MediaQueryData(
-            size: Size(390, 844),
-            textScaler: TextScaler.linear(2.0),
+        await pumpScreen(
+          tester,
+          const MediaQuery(
+            data: MediaQueryData(
+              size: Size(390, 844),
+              textScaler: TextScaler.linear(2.0),
+            ),
+            child: ControlScreen(),
           ),
-          child: InboxScreen(),
-        ),
-        overrides: overrides,
-        themeMode: ThemeMode.dark,
-      );
+          overrides: overrides,
+          themeMode: ThemeMode.dark,
+        );
 
-      expect(tester.takeException(), isNull);
-      await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
-      await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
-    });
-
-    testWidgets('Projects screen scales to 200% text in dark theme without overflow', (
-      tester,
-    ) async {
-      final overrides = await testOverrides(
-        adapter: FakeAdapter(_allRoutes),
-        connection: testConfig,
-      );
-
-      await pumpScreen(
-        tester,
-        const MediaQuery(
-          data: MediaQueryData(
-            size: Size(390, 844),
-            textScaler: TextScaler.linear(2.0),
-          ),
-          child: ProjectsScreen(),
-        ),
-        overrides: overrides,
-        themeMode: ThemeMode.dark,
-      );
-
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('Control screen scales to 200% text and meets tap target guidelines', (
-      tester,
-    ) async {
-      final overrides = await testOverrides(
-        adapter: FakeAdapter(_allRoutes),
-        connection: testConfig,
-      );
-
-      await pumpScreen(
-        tester,
-        const MediaQuery(
-          data: MediaQueryData(
-            size: Size(390, 844),
-            textScaler: TextScaler.linear(2.0),
-          ),
-          child: ControlScreen(),
-        ),
-        overrides: overrides,
-        themeMode: ThemeMode.dark,
-      );
-
-      expect(tester.takeException(), isNull);
-      await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
-      await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
-    });
+        expect(tester.takeException(), isNull);
+        await expectLater(tester, meetsGuideline(androidTapTargetGuideline));
+        await expectLater(tester, meetsGuideline(labeledTapTargetGuideline));
+      },
+    );
   });
 }
