@@ -92,7 +92,7 @@ class Settings(BaseSettings):
     )
 
     # Notification settings
-    DESKTOP_NOTIFY_ENABLED: bool = Field(default=True, description="Enable local native desktop notifications")
+    DESKTOP_NOTIFY_ENABLED: bool = Field(default=False, description="Enable local native desktop notifications (opt-in)")
     NOTIFY_ON_PROJECT_UPDATES: bool = Field(default=True, description="Send notification for project updates")
     NOTIFY_ON_URGENT: bool = Field(default=True, description="Send notification for urgent/actionable emails")
     MIN_URGENCY_TO_NOTIFY: int = Field(default=2, description="Minimum urgency level (1-5) to trigger an alert")
