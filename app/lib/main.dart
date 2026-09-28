@@ -15,9 +15,18 @@ Future<void> main() async {
   // (Android 15+ enforces this; older versions need it requested).
   await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
   final prefs = await SharedPreferences.getInstance();
-  await Workmanager().initialize(callbackDispatcher);
+  // Background alerts and notifications are optional: a failure here must
+  // never prevent the app from starting.
   final notificationService = NotificationService();
-  final launchRoute = await notificationService.initialize();
+  String? launchRoute;
+  try {
+    await Workmanager().initialize(callbackDispatcher);
+    launchRoute = await notificationService.initialize();
+  } catch (e, st) {
+    FlutterError.reportError(
+      FlutterErrorDetails(exception: e, stack: st, library: 'sentinel startup'),
+    );
+  }
 
   runApp(
     ProviderScope(

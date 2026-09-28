@@ -16,6 +16,9 @@ void callbackDispatcher() {
       final config = await ConnectionStore().read();
       if (config == null) return true;
       final prefs = await SharedPreferences.getInstance();
+      // WorkManager may reuse this background engine between runs, and each
+      // isolate caches preferences: re-read so the cursor is never stale.
+      await prefs.reload();
       final repository = SentinelRepository(ApiClient(config));
       final store = AlertCursorStore(prefs);
       final notifier = NotificationService();
@@ -37,6 +40,13 @@ void callbackDispatcher() {
 class AlertCursorStore {
   AlertCursorStore(this._prefs);
   final SharedPreferences _prefs;
+
+  /// Forget the cursor (e.g. when connecting to a different server) so the
+  /// next poll re-initialises it instead of comparing ids from another DB.
+  static Future<void> reset(SharedPreferences prefs) async {
+    await prefs.remove('alerts.cursor');
+    await prefs.remove('alerts.lastBriefingId');
+  }
 
   int? get cursor => _prefs.getInt('alerts.cursor');
   Future<void> setCursor(int value) => _prefs.setInt('alerts.cursor', value);
