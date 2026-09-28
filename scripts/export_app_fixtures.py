@@ -136,7 +136,9 @@ def main() -> None:
             "error_422": client.patch("/api/settings", json={"min_urgency_to_notify": 9}, headers=auth),
         }
         for name, response in fixtures.items():
-            (OUT / f"{name}.json").write_text(json.dumps(response.json(), indent=2) + "\n", encoding="utf-8")
+            (OUT / f"{name}.json").write_text(
+                json.dumps(response.json(), indent=2) + "\n", encoding="utf-8", newline="\n"
+            )
         print(f"wrote {len(fixtures)} fixtures to {OUT}")
 
 

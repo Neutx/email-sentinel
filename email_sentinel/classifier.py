@@ -108,22 +108,7 @@ class EmailClassifier:
                 matched_project = kw.capitalize()
                 break
 
-        # Check for PR / Issue brackets or CI notifications in subject
-        has_dev_subject = any(
-            ds in subject
-            for ds in [
-                "pull request",
-                "merged pull request",
-                "opened an issue",
-                "workflow run",
-                "pipeline failed",
-                "deployment",
-                "build #",
-                "release v",
-            ]
-        )
-
-        if is_dev_platform or matched_project or has_dev_subject:
+        if is_dev_platform or matched_project:
             project_name = matched_project or (
                 "GitHub" if "github" in sender_email or "github" in subject else "Project Update"
             )
