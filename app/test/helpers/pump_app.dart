@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:sentinel/core/background/alert_scheduler.dart';
 import 'package:sentinel/core/config/connection_config.dart';
 import 'package:sentinel/core/preferences/app_preferences.dart';
 import 'package:sentinel/core/providers.dart';
@@ -40,6 +41,25 @@ Future<List<Override>> testOverrides({
     ),
     apiClientFactoryProvider.overrideWithValue(
       (config) => fakeClient(adapter, config),
+    ),
+    alertSchedulerProvider.overrideWithValue(
+      AlertScheduler(
+        registerPeriodicTask: (
+          uniqueName,
+          taskName, {
+          backoffPolicy,
+          backoffPolicyDelay,
+          constraints,
+          existingWorkPolicy,
+          flexInterval,
+          foregroundServiceConfig,
+          frequency,
+          initialDelay,
+          inputData,
+          tag,
+        }) async {},
+        cancelByUniqueName: (uniqueName) async {},
+      ),
     ),
   ];
 }

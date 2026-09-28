@@ -1,7 +1,36 @@
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:workmanager/workmanager.dart';
 
 import '../../data/models.dart';
 import '../../data/sentinel_repository.dart';
+import '../config/connection_config.dart';
+import '../network/api_client.dart';
+import '../notifications/notification_service.dart';
+
+const kAlertTask = 'sentinel.pollAlerts';
+
+@pragma('vm:entry-point')
+void callbackDispatcher() {
+  Workmanager().executeTask((task, inputData) async {
+    try {
+      final config = await ConnectionStore().read();
+      if (config == null) return true;
+      final prefs = await SharedPreferences.getInstance();
+      final repository = SentinelRepository(ApiClient(config));
+      final store = AlertCursorStore(prefs);
+      final notifier = NotificationService();
+      await notifier.initialize();
+      await pollAlerts(
+        repository: repository,
+        store: store,
+        notifier: notifier,
+      );
+      return true;
+    } catch (_) {
+      return true;
+    }
+  });
+}
 
 /// Storage of the alert cursor + last seen briefing id (SharedPreferences keys
 /// 'alerts.cursor' and 'alerts.lastBriefingId').
