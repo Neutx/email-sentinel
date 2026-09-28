@@ -1,11 +1,9 @@
 """Tests for Email Sentinel data models."""
 
-from datetime import datetime
 from email_sentinel.models import (
     ClassificationResult,
     EmailCategory,
     EmailMessage,
-    NotificationChannel,
     NotificationPayload,
     UnsubscribeMethod,
     UnsubscribeResult,

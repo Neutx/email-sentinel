@@ -1,7 +1,6 @@
 """Tests for Email Unsubscriber."""
 
 from unittest.mock import MagicMock, patch
-import httpx
 
 from email_sentinel.config import Settings
 from email_sentinel.models import EmailMessage, UnsubscribeMethod

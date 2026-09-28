@@ -2,22 +2,27 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
+import json
+import sys
 from pathlib import Path
 from typing import Optional
 
+import typer
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-import typer
 
 from email_sentinel.config import Settings, get_settings
-from email_sentinel.db import Database
+from email_sentinel.db import Database, ScanInProgressError
 from email_sentinel.engine import SentinelEngine
 from email_sentinel.models import (
     EmailCategory,
     NotificationPayload,
 )
 from email_sentinel.notifier import Notifier
+from email_sentinel.runtime import load_effective_settings
 
 app = typer.Typer(
     name="email-sentinel",
@@ -32,18 +37,24 @@ def scan(
     limit: int = typer.Option(20, "--limit", "-n", help="Max emails to scan"),
     all_emails: bool = typer.Option(False, "--all", "-a", help="Scan both read and unread emails"),
     dry_run: bool = typer.Option(False, "--dry-run", help="Simulate actions without deleting/unsubscribing"),
+    as_json: bool = typer.Option(False, "--json", help="Print only a one-line JSON summary (for Hermes cron)"),
+    trigger: str = typer.Option("cli", "--trigger", help="Label recorded on the scan run"),
 ) -> None:
     """Scan inbox, classify emails, unsubscribe/trash marketing, and store/alert on project updates."""
-    settings = get_settings()
+    settings = load_effective_settings()
     if dry_run:
         settings.DRY_RUN = True
+
+    if as_json:
+        _scan_json(settings, limit=limit, unread_only=not all_emails, trigger=trigger)
+        return
 
     if not settings.IMAP_USER or not settings.IMAP_PASSWORD:
         console.print(
             "[bold red]Error: IMAP credentials not configured.[/bold red]\n"
             "Run [bold cyan]email-sentinel config-init[/bold cyan] to generate your .env file."
         )
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     console.print(
         Panel.fit(
@@ -56,7 +67,12 @@ def scan(
     )
 
     engine = SentinelEngine(settings)
-    results = engine.run_scan(limit=limit, unread_only=not all_emails)
+    try:
+        report = engine.run_scan(limit=limit, unread_only=not all_emails, trigger=trigger)
+    except ScanInProgressError as e:
+        console.print(f"[yellow]{e}. Try again shortly.[/yellow]")
+        raise typer.Exit(0) from None
+    results = report.results
 
     table = Table(title="Scan Results", show_lines=True)
     table.add_column("Subject", style="cyan", overflow="ellipsis", max_width=30)
@@ -73,9 +89,9 @@ def scan(
             r.email.sender_email,
             r.classification.category.value,
             f"{r.classification.urgency}/5",
-            "[green]✓[/green]" if r.unsubscribed and r.unsubscribed.success else (
-                "[yellow]⚠[/yellow]" if r.unsubscribed else "-"
-            ),
+            "[green]✓[/green]"
+            if r.unsubscribed and r.unsubscribed.success
+            else ("[yellow]⚠[/yellow]" if r.unsubscribed else "-"),
             "[green]✓[/green]" if r.deleted_or_trashed else "-",
             "[green]✓[/green]" if r.notification_sent else "-",
         )
@@ -83,12 +99,39 @@ def scan(
     console.print(table)
 
 
+def _scan_json(settings: Settings, limit: int, unread_only: bool, trigger: str) -> None:
+    """Run a scan with all console chatter suppressed; emit one JSON line on stdout."""
+    out: dict
+    exit_code = 0
+    with contextlib.redirect_stdout(io.StringIO()):
+        try:
+            report = SentinelEngine(settings).run_scan(limit=limit, unread_only=unread_only, trigger=trigger)
+            urgent = [
+                {
+                    "subject": r.email.subject,
+                    "sender": r.email.sender_email,
+                    "urgency": r.classification.urgency,
+                    "summary": r.classification.summary,
+                }
+                for r in report.results
+                if r.classification.category == EmailCategory.URGENT_ACTIONABLE
+            ]
+            out = {"status": "ok", "scan_id": report.scan_id, **report.summary(), "urgent": urgent}
+        except ScanInProgressError as e:
+            out = {"status": "busy", "detail": str(e)}
+        except Exception as e:
+            out = {"status": "error", "detail": f"{type(e).__name__}: {e}"}
+            exit_code = 1
+    sys.stdout.write(json.dumps(out) + "\n")
+    raise typer.Exit(exit_code)
+
+
 @app.command()
 def watch(
     dry_run: bool = typer.Option(False, "--dry-run", help="Simulate actions without deleting/unsubscribing"),
 ) -> None:
-    """Run real-time continuous background email watcher."""
-    settings = get_settings()
+    """Scan continuously in the foreground (production uses the Hermes cron job instead)."""
+    settings = load_effective_settings()
     if dry_run:
         settings.DRY_RUN = True
 
@@ -97,7 +140,7 @@ def watch(
             "[bold red]Error: IMAP credentials not configured.[/bold red]\n"
             "Run [bold cyan]email-sentinel config-init[/bold cyan] to generate your .env file."
         )
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     console.print(
         Panel.fit(
@@ -271,14 +314,18 @@ SENTINEL_IMAP_TRASH_FOLDER=[Gmail]/Trash
 SENTINEL_AUTO_UNSUBSCRIBE=true
 SENTINEL_AUTO_DELETE_MARKETING=true
 SENTINEL_DRY_RUN=false
-SENTINEL_POLL_INTERVAL_SECONDS=60
-SENTINEL_USE_IMAP_IDLE=true
+
+# --- REST API (Android app + Hermes) ---
+# Bind to your Tailscale IP to reach it from the phone; a token (>= 24 chars) is then mandatory.
+SENTINEL_API_HOST=127.0.0.1
+SENTINEL_API_PORT=8765
+SENTINEL_API_TOKEN=
 
 # --- LLM Classification (OpenRouter, OpenAI, Gemini, or rules_only) ---
 # Options: 'rules_only', 'openrouter', 'openai', 'gemini', 'ollama'
-SENTINEL_LLM_PROVIDER=rules_only
+SENTINEL_LLM_PROVIDER=gemini
 SENTINEL_LLM_API_KEY=
-SENTINEL_LLM_MODEL=gpt-4o-mini
+SENTINEL_LLM_MODEL=gemini-3.7-flash
 # SENTINEL_LLM_BASE_URL=https://openrouter.ai/api/v1
 
 # --- WhatsApp Notifications ---
@@ -323,26 +370,31 @@ def audit(
     dry_run: bool = typer.Option(False, "--dry-run", help="Simulate without trashing/unsubscribing"),
 ) -> None:
     """Perform a full high-speed audit & cleanup of ALL unread inbox emails."""
-    settings = get_settings()
+    settings = load_effective_settings()
     if dry_run:
         settings.DRY_RUN = True
 
     if not settings.IMAP_USER or not settings.IMAP_PASSWORD:
         console.print("[bold red]Error: IMAP credentials not configured.[/bold red]")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
     console.print(
         Panel.fit(
             f"[bold cyan]Full Unread Inbox Audit & Automated Cleanup[/bold cyan]\n"
             f"Mailbox: [yellow]{settings.IMAP_USER}[/yellow]\n"
             f"Mode: {'[yellow]DRY-RUN[/yellow]' if settings.DRY_RUN else '[green]LIVE CLEANUP[/green]'}\n"
-            f"Auto-Unsubscribe: [green]ENABLED[/green] | Auto-Trash: [green]ENABLED[/green]",
+            f"Auto-Unsubscribe: {'[green]ON[/green]' if settings.AUTO_UNSUBSCRIBE else '[red]OFF[/red]'} | "
+            f"Auto-Trash: {'[green]ON[/green]' if settings.AUTO_DELETE_MARKETING else '[red]OFF[/red]'}",
             title="Audit Engine",
         )
     )
 
     engine = SentinelEngine(settings)
-    stats = engine.run_audit(batch_size=batch_size, max_emails=max_emails)
+    try:
+        stats = engine.run_audit(batch_size=batch_size, max_emails=max_emails)
+    except ScanInProgressError as e:
+        console.print(f"[yellow]{e}. Try again shortly.[/yellow]")
+        raise typer.Exit(1) from None
 
     console.print("\n[bold green]━━━ Audit Complete ━━━[/bold green]")
     table = Table(title="Audit Summary", show_header=False)
@@ -357,22 +409,58 @@ def audit(
 
 
 @app.command()
-def ui(
-    host: str = typer.Option("127.0.0.1", "--host", "-h", help="Bind host"),
-    port: int = typer.Option(8765, "--port", "-p", help="Bind port"),
+def serve(
+    host: Optional[str] = typer.Option(None, "--host", "-h", help="Bind host (default SENTINEL_API_HOST)"),
+    port: Optional[int] = typer.Option(None, "--port", "-p", help="Bind port (default SENTINEL_API_PORT)"),
 ) -> None:
-    """Launch the local personal web app dashboard."""
+    """Run the REST API used by the Android app and Hermes."""
     from email_sentinel.server import run_server
 
+    settings = get_settings()
+    auth = "[green]bearer token[/green]" if settings.API_TOKEN else "[yellow]none (loopback only)[/yellow]"
     console.print(
         Panel.fit(
-            f"[bold green]Starting Local Email Sentinel Web App...[/bold green]\n"
-            f"Dashboard URL: [bold cyan]http://{host}:{port}[/bold cyan]\n"
-            f"Database: [yellow]{get_settings().DB_PATH}[/yellow]",
-            title="Email Sentinel App",
+            f"[bold green]Email Sentinel API[/bold green]\n"
+            f"Listening: [bold cyan]http://{host or settings.API_HOST}:{port or settings.API_PORT}[/bold cyan]\n"
+            f"Auth: {auth}\n"
+            f"Database: [yellow]{settings.DB_PATH}[/yellow]",
+            title="Email Sentinel",
         )
     )
     run_server(host=host, port=port)
+
+
+briefing_app = typer.Typer(help="Read briefing context and store briefings (used by the Hermes briefing job).")
+app.add_typer(briefing_app, name="briefing")
+
+
+@briefing_app.command("context")
+def briefing_context(
+    hours: int = typer.Option(12, "--hours", help="Look-back window in hours"),
+) -> None:
+    """Print the aggregated inbox context for a briefing as JSON."""
+    db = Database(get_settings().DB_PATH)
+    sys.stdout.write(json.dumps(db.get_briefing_context(hours=hours), indent=2, default=str) + "\n")
+
+
+@briefing_app.command("save")
+def briefing_save(
+    file: Path = typer.Option(..., "--file", "-f", exists=True, readable=True, help="JSON file to store"),
+) -> None:
+    """Store a briefing. JSON keys: period (morning|evening|adhoc), title, summary, body_markdown."""
+    from pydantic import ValidationError
+
+    from email_sentinel.schemas import BriefingCreate
+
+    try:
+        req = BriefingCreate.model_validate_json(file.read_text(encoding="utf-8"))
+    except ValidationError as e:
+        console.print(f"[red]Invalid briefing JSON:[/red]\n{e}")
+        raise typer.Exit(1) from None
+    saved = Database(get_settings().DB_PATH).save_briefing(
+        req.period, req.title, req.summary, req.body_markdown, req.source
+    )
+    sys.stdout.write(json.dumps({"status": "saved", "id": saved["id"]}) + "\n")
 
 
 def main() -> None:

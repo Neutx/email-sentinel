@@ -2,6 +2,7 @@
 
 import tempfile
 from pathlib import Path
+
 from email_sentinel.db import Database
 from email_sentinel.models import (
     ClassificationResult,

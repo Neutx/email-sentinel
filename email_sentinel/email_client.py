@@ -1,15 +1,14 @@
-"""Universal IMAP Client supporting SSL, message decoding, trash operations, and IMAP IDLE."""
+"""IMAP client: UID-safe fetching, flagging, trash and restore operations."""
 
 from __future__ import annotations
 
 import email
+import imaplib
+import re
+from datetime import UTC, datetime
 from email.header import decode_header
 from email.utils import parseaddr, parsedate_to_datetime
-import imaplib
-import socket
-import time
-from datetime import datetime, timezone
-from typing import Dict, Generator, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from rich.console import Console
 
@@ -17,6 +16,19 @@ from email_sentinel.config import Settings
 from email_sentinel.models import EmailMessage
 
 console = Console()
+
+_UID_RE = re.compile(r"UID (\d+)")
+
+
+def _fallback_message_id(folder: str, uid: str) -> str:
+    """Deterministic ID for messages without a Message-ID header, so dedup still works."""
+    return f"<no-message-id.{folder}.{uid}@email-sentinel>"
+
+
+def _quote_mailbox(name: str) -> str:
+    if name.startswith('"'):
+        return name
+    return '"' + name.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
 class EmailClient:
@@ -32,7 +44,7 @@ class EmailClient:
         console.print(f"[cyan]Connecting to IMAP {self.settings.IMAP_HOST}:{self.settings.IMAP_PORT}...[/cyan]")
         self.client = imaplib.IMAP4_SSL(self.settings.IMAP_HOST, self.settings.IMAP_PORT)
         self.client.login(self.settings.IMAP_USER, self.settings.IMAP_PASSWORD)
-        self.client.select(self.settings.IMAP_FOLDER)
+        self.client.select(_quote_mailbox(self.settings.IMAP_FOLDER))
         console.print("[green]Connected and authenticated successfully.[/green]")
 
     def close(self) -> None:
@@ -54,55 +66,58 @@ class EmailClient:
         assert self.client is not None
         return self.client
 
-    def fetch_unseen_emails(self, limit: Optional[int] = None) -> List[EmailMessage]:
-        """Fetch unseen/unread emails from the mailbox."""
+    # ------------------------------------------------------------------
+    # All mailbox operations use IMAP UIDs (never sequence numbers), so that
+    # expunging one message can't shift the identity of another mid-scan.
+    # Fetches use BODY.PEEK so scanning never flips the Seen flag.
+    # ------------------------------------------------------------------
+
+    def search_uids(self, unread_only: bool = True) -> List[str]:
+        """Return UIDs in the watched folder, oldest first."""
         client = self._ensure_connected()
-        status, data = client.search(None, "UNSEEN")
+        status, data = client.uid("SEARCH", None, "UNSEEN" if unread_only else "ALL")
         if status != "OK" or not data or not data[0]:
             return []
+        return [u.decode("utf-8") for u in data[0].split()]
 
-        uids = data[0].split()
-        if limit:
-            uids = uids[-limit:]
+    def fetch_message_ids(self, uids: List[str]) -> Dict[str, str]:
+        """Cheaply fetch the Message-ID header for many UIDs in one round trip."""
+        if not uids:
+            return {}
+        client = self._ensure_connected()
+        status, data = client.uid("FETCH", ",".join(uids), "(UID BODY.PEEK[HEADER.FIELDS (MESSAGE-ID)])")
+        result: Dict[str, str] = {}
+        if status != "OK" or not data:
+            return result
+        for part in data:
+            if not (isinstance(part, tuple) and len(part) == 2):
+                continue
+            meta = part[0].decode("utf-8", errors="replace")
+            m = _UID_RE.search(meta)
+            if not m:
+                continue
+            uid = m.group(1)
+            header_msg = email.message_from_bytes(part[1])
+            result[uid] = (header_msg.get("Message-ID") or "").strip() or _fallback_message_id(
+                self.settings.IMAP_FOLDER, uid
+            )
+        return result
 
+    def fetch_emails(self, uids: List[str]) -> List[EmailMessage]:
         emails: List[EmailMessage] = []
-        for uid_bytes in uids:
-            uid = uid_bytes.decode("utf-8")
+        for uid in uids:
             try:
                 msg = self.fetch_email_by_uid(uid)
                 if msg:
                     emails.append(msg)
             except Exception as e:
                 console.print(f"[red]Error parsing email UID {uid}: {e}[/red]")
-
-        return emails
-
-    def fetch_recent_emails(self, limit: int = 20) -> List[EmailMessage]:
-        """Fetch the most recent emails from the mailbox (read and unread)."""
-        client = self._ensure_connected()
-        status, data = client.search(None, "ALL")
-        if status != "OK" or not data or not data[0]:
-            return []
-
-        uids = data[0].split()
-        target_uids = uids[-limit:]
-
-        emails: List[EmailMessage] = []
-        for uid_bytes in target_uids:
-            uid = uid_bytes.decode("utf-8")
-            try:
-                msg = self.fetch_email_by_uid(uid)
-                if msg:
-                    emails.append(msg)
-            except Exception as e:
-                console.print(f"[red]Error parsing email UID {uid}: {e}[/red]")
-
         return emails
 
     def fetch_email_by_uid(self, uid: str) -> Optional[EmailMessage]:
-        """Fetch and parse a single email by UID."""
+        """Fetch and parse a single email by UID without marking it as read."""
         client = self._ensure_connected()
-        status, data = client.fetch(uid, "(RFC822)")
+        status, data = client.uid("FETCH", uid, "(BODY.PEEK[])")
         if status != "OK" or not data or not data[0]:
             return None
 
@@ -119,109 +134,69 @@ class EmailClient:
 
     def mark_as_read(self, uid: str) -> bool:
         """Mark an email as read / SEEN."""
+        return self.mark_batch_as_read([uid])
+
+    def mark_batch_as_read(self, uids: List[str]) -> bool:
+        """Mark multiple emails as read in a single UID STORE."""
+        if not uids:
+            return True
         if self.settings.DRY_RUN:
-            console.print(f"[yellow][DRY-RUN] Would mark UID {uid} as SEEN[/yellow]")
+            console.print(f"[yellow][DRY-RUN] Would mark {len(uids)} email(s) as SEEN[/yellow]")
             return True
         try:
             client = self._ensure_connected()
-            client.store(uid, "+FLAGS", "\\Seen")
-            return True
+            status, _ = client.uid("STORE", ",".join(uids), "+FLAGS", r"(\Seen)")
+            return status == "OK"
         except Exception as e:
-            console.print(f"[red]Failed to mark UID {uid} as read: {e}[/red]")
+            console.print(f"[red]Failed to mark {len(uids)} email(s) as read: {e}[/red]")
             return False
 
     def move_to_trash(self, uid: str) -> bool:
-        """Move email to Trash folder and mark for deletion."""
-        if self.settings.DRY_RUN:
-            console.print(f"[yellow][DRY-RUN] Would move UID {uid} to Trash and delete[/yellow]")
-            return True
-
-        client = self._ensure_connected()
-        trash_folder = self.settings.IMAP_TRASH_FOLDER
-
-        try:
-            # 1. Try COPY to trash folder
-            copy_status, _ = client.copy(uid, trash_folder)
-            if copy_status == "OK":
-                client.store(uid, "+FLAGS", "\\Deleted")
-                client.expunge()
-                return True
-        except Exception:
-            # Fallback to generic Trash or mark Deleted directly
-            pass
-
-        try:
-            client.store(uid, "+FLAGS", "\\Deleted")
-            client.expunge()
-            return True
-        except Exception as e:
-            console.print(f"[red]Failed to delete UID {uid}: {e}[/red]")
-            return False
+        """Move one email to the Trash folder."""
+        return self.move_batch_to_trash([uid])
 
     def move_batch_to_trash(self, uids: List[str]) -> bool:
-        """Move multiple emails to Trash in a single batch operation."""
+        """Move emails to Trash (UID MOVE when supported, else COPY + delete)."""
         if not uids:
             return True
         if self.settings.DRY_RUN:
-            console.print(f"[yellow][DRY-RUN] Would move {len(uids)} emails to Trash[/yellow]")
+            console.print(f"[yellow][DRY-RUN] Would move {len(uids)} email(s) to Trash[/yellow]")
             return True
+        try:
+            return self._uid_move(",".join(uids), self.settings.IMAP_TRASH_FOLDER)
+        except Exception as e:
+            console.print(f"[red]Failed to move {len(uids)} email(s) to Trash: {e}[/red]")
+            return False
 
+    def restore_from_trash(self, message_id: str) -> bool:
+        """Move a trashed email (found by Message-ID) back into the watched folder."""
+        if self.settings.DRY_RUN:
+            console.print(f"[yellow][DRY-RUN] Would restore {message_id} from Trash[/yellow]")
+            return True
         client = self._ensure_connected()
-        uids_str = ",".join(uids)
-        trash_folder = self.settings.IMAP_TRASH_FOLDER
-
+        safe_id = message_id.replace('"', "").replace("\\", "")
         try:
-            copy_status, _ = client.copy(uids_str, trash_folder)
-            if copy_status == "OK":
-                client.store(uids_str, "+FLAGS", "\\Deleted")
-                client.expunge()
-                return True
-        except Exception:
-            pass
+            client.select(_quote_mailbox(self.settings.IMAP_TRASH_FOLDER))
+            status, data = client.uid("SEARCH", None, "HEADER", "Message-ID", f'"{safe_id}"')
+            if status != "OK" or not data or not data[0]:
+                return False
+            uids = [u.decode("utf-8") for u in data[0].split()]
+            return self._uid_move(",".join(uids), self.settings.IMAP_FOLDER)
+        finally:
+            client.select(_quote_mailbox(self.settings.IMAP_FOLDER))
 
-        try:
-            client.store(uids_str, "+FLAGS", "\\Deleted")
-            client.expunge()
-            return True
-        except Exception as e:
-            console.print(f"[red]Failed to batch delete {len(uids)} emails: {e}[/red]")
+    def _uid_move(self, uid_set: str, destination: str) -> bool:
+        client = self._ensure_connected()
+        target = _quote_mailbox(destination)
+        if "MOVE" in getattr(client, "capabilities", ()):
+            status, _ = client.uid("MOVE", uid_set, target)
+            return status == "OK"
+        status, _ = client.uid("COPY", uid_set, target)
+        if status != "OK":
             return False
-
-    def mark_batch_as_read(self, uids: List[str]) -> bool:
-        """Mark multiple emails as read in a single batch operation."""
-        if not uids:
-            return True
-        if self.settings.DRY_RUN:
-            return True
-        try:
-            client = self._ensure_connected()
-            client.store(",".join(uids), "+FLAGS", "\\Seen")
-            return True
-        except Exception as e:
-            console.print(f"[red]Failed to batch mark as read: {e}[/red]")
-            return False
-
-    def idle_watch(self) -> Generator[List[EmailMessage], None, None]:
-        """Watch mailbox continuously using polling or IMAP IDLE."""
-        while True:
-            try:
-                self._ensure_connected()
-                unseen = self.fetch_unseen_emails()
-                if unseen:
-                    yield unseen
-
-                if self.settings.USE_IMAP_IDLE and hasattr(self.client, "idle"):
-                    # Wait via IDLE or fallback sleep
-                    time.sleep(self.settings.POLL_INTERVAL_SECONDS)
-                else:
-                    time.sleep(self.settings.POLL_INTERVAL_SECONDS)
-            except (imaplib.IMAP4.error, socket.error, OSError) as e:
-                console.print(f"[yellow]IMAP connection interrupted ({e}). Reconnecting in 5s...[/yellow]")
-                self.close()
-                time.sleep(5)
-            except Exception as e:
-                console.print(f"[red]Unexpected error in idle_watch: {e}[/red]")
-                time.sleep(10)
+        client.uid("STORE", uid_set, "+FLAGS", r"(\Deleted)")
+        client.expunge()
+        return True
 
     def _decode_header_str(self, header_raw: Optional[str]) -> str:
         if not header_raw:
@@ -249,11 +224,11 @@ class EmailClient:
         sender_name, sender_email = parseaddr(raw_from)
 
         # Message-ID
-        message_id = msg.get("Message-ID", f"generated-{uid}-{int(time.time())}")
+        message_id = (msg.get("Message-ID") or "").strip() or _fallback_message_id(self.settings.IMAP_FOLDER, uid)
 
         # Date
         date_header = msg.get("Date")
-        date_val = datetime.now(timezone.utc)
+        date_val = datetime.now(UTC)
         if date_header:
             try:
                 date_val = parsedate_to_datetime(date_header)

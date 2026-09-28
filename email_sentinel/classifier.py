@@ -7,9 +7,12 @@ import re
 from typing import Optional
 
 import httpx
+from rich.console import Console
 
 from email_sentinel.config import Settings
 from email_sentinel.models import ClassificationResult, EmailCategory, EmailMessage
+
+console = Console()
 
 
 class EmailClassifier:
@@ -33,8 +36,8 @@ class EmailClassifier:
                         llm_result.category = EmailCategory.GENERAL_FYI
                         llm_result.reasoning += " (Overridden: Protected domain)"
                     return llm_result
-            except Exception:
-                pass
+            except Exception as e:
+                console.print(f"[yellow]LLM classification failed ({type(e).__name__}: {e}); using rules.[/yellow]")
 
         # 2. Fallback to high-precision rule-based heuristics
         return self._classify_with_rules(email)
@@ -51,7 +54,6 @@ class EmailClassifier:
     def _classify_with_rules(self, email: EmailMessage) -> ClassificationResult:
         """High-precision heuristic and regex-based classification."""
         subject = email.subject.lower()
-        sender = email.sender.lower()
         sender_email = email.sender_email.lower()
         domain = email.domain
         body = (email.body_plain or email.body_html or "").lower()
@@ -102,9 +104,7 @@ class EmailClassifier:
         matched_project = None
         for kw in self.settings.PROJECT_KEYWORDS:
             kw_clean = kw.lower().strip()
-            if kw_clean and (
-                kw_clean in subject or (len(kw_clean) >= 5 and kw_clean in sender_email)
-            ):
+            if kw_clean and (kw_clean in subject or (len(kw_clean) >= 5 and kw_clean in sender_email)):
                 matched_project = kw.capitalize()
                 break
 
@@ -123,7 +123,7 @@ class EmailClassifier:
             ]
         )
 
-        if is_dev_platform or matched_project:
+        if is_dev_platform or matched_project or has_dev_subject:
             project_name = matched_project or (
                 "GitHub" if "github" in sender_email or "github" in subject else "Project Update"
             )
@@ -321,14 +321,19 @@ Respond ONLY with a JSON object matching this schema:
             "temperature": self.settings.LLM_TEMPERATURE,
             "response_format": {"type": "json_object"},
         }
+        if self.settings.LLM_REASONING_EFFORT and self.settings.LLM_PROVIDER != "ollama":
+            payload["reasoning_effort"] = self.settings.LLM_REASONING_EFFORT
 
-        with httpx.Client(timeout=20.0) as client:
+        with httpx.Client(timeout=30.0) as client:
             response = client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
             if response.status_code != 200:
+                console.print(f"[yellow]LLM API returned HTTP {response.status_code}: {response.text[:200]}[/yellow]")
                 return None
 
             data = response.json()
-            content = data["choices"][0]["message"]["content"]
+            content = data["choices"][0]["message"]["content"].strip()
+            if content.startswith("```"):
+                content = re.sub(r"^```(?:json)?\s*|\s*```$", "", content)
             parsed = json.loads(content)
 
             return ClassificationResult(

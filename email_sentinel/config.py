@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
-from typing import List, Optional
+from typing import Any, Dict, List, Mapping, Optional
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -19,11 +19,21 @@ class Settings(BaseSettings):
 
     # General / Runtime
     DRY_RUN: bool = Field(default=False, description="Simulate actions without deleting/unsubscribing")
-    POLL_INTERVAL_SECONDS: int = Field(default=60, description="Polling interval in seconds if IDLE not used")
-    USE_IMAP_IDLE: bool = Field(default=True, description="Use IMAP IDLE for instant push notifications")
+    POLL_INTERVAL_SECONDS: int = Field(default=300, description="Seconds between scans for the `watch` daemon")
     DB_PATH: str = Field(
         default=str(Path.home() / ".email_sentinel" / "sentinel.db"),
         description="Path to SQLite database",
+    )
+
+    # REST API (consumed by the Android app and Hermes)
+    API_HOST: str = Field(default="127.0.0.1", description="Bind address for `email-sentinel serve`")
+    API_PORT: int = Field(default=8765, description="Bind port for `email-sentinel serve`")
+    API_TOKEN: str = Field(
+        default="",
+        description="Bearer token required on /api/* (mandatory when API_HOST is not loopback)",
+    )
+    SCAN_LEASE_MINUTES: int = Field(
+        default=15, description="A running scan older than this is considered crashed and may be replaced"
     )
 
     # Mailbox (IMAP)
@@ -49,6 +59,10 @@ class Settings(BaseSettings):
     LLM_BASE_URL: Optional[str] = Field(default=None, description="Custom LLM API base URL")
     LLM_MODEL: str = Field(default="gpt-4o-mini", description="Model name for classification")
     LLM_TEMPERATURE: float = Field(default=0.1, description="Sampling temperature for classification")
+    LLM_REASONING_EFFORT: str = Field(
+        default="low",
+        description="reasoning_effort for thinking models (low keeps Gemini flash ~3s/email); empty to omit",
+    )
 
     # Allowlist and Project Detection
     PROTECTED_DOMAINS: List[str] = Field(
@@ -111,5 +125,28 @@ class Settings(BaseSettings):
     GENERIC_WEBHOOK_URL: str = Field(default="", description="Generic Webhook URL")
 
 
+# Settings the Android app may change at runtime. Values live in the database
+# (settings_overrides table) and are layered over the .env values.
+RUNTIME_EDITABLE: Dict[str, type] = {
+    "DRY_RUN": bool,
+    "AUTO_UNSUBSCRIBE": bool,
+    "AUTO_DELETE_MARKETING": bool,
+    "AUTO_MARK_READ_PROCESSED": bool,
+    "NOTIFY_ON_PROJECT_UPDATES": bool,
+    "NOTIFY_ON_URGENT": bool,
+    "MIN_URGENCY_TO_NOTIFY": int,
+    "PROTECTED_DOMAINS": list,
+    "PROJECT_KEYWORDS": list,
+}
+
+
 def get_settings() -> Settings:
     return Settings()
+
+
+def apply_overrides(settings: Settings, overrides: Mapping[str, Any]) -> Settings:
+    """Return a copy of `settings` with runtime-editable overrides applied."""
+    updates = {k: v for k, v in overrides.items() if k in RUNTIME_EDITABLE}
+    if not updates:
+        return settings
+    return settings.model_copy(update=updates)

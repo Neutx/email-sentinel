@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field
 
 
@@ -44,7 +45,7 @@ class EmailMessage(BaseModel):
     sender_email: str = ""
     to: List[str] = Field(default_factory=list)
     cc: List[str] = Field(default_factory=list)
-    date: datetime = Field(default_factory=datetime.utcnow)
+    date: datetime = Field(default_factory=lambda: datetime.now(UTC))
     body_plain: str = ""
     body_html: str = ""
     list_unsubscribe: Optional[str] = None
@@ -86,7 +87,7 @@ class NotificationPayload(BaseModel):
     project_name: Optional[str] = None
     sender: str = ""
     subject: str = ""
-    received_at: datetime = Field(default_factory=datetime.utcnow)
+    received_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     action_description: Optional[str] = None
 
 

@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import html
+import os
 import urllib.parse
-from typing import Dict, List, Optional
+from typing import Dict, List
 
 import httpx
 from rich.console import Console
@@ -125,30 +126,34 @@ class Notifier:
         import subprocess
 
         system = platform.system()
-        safe_title = payload.title.replace('"', "'")
-        safe_summary = (payload.body[:150] + ("..." if len(payload.body) > 150 else "")).replace('"', "'")
+        title = payload.title[:120]
+        summary = payload.body[:150] + ("..." if len(payload.body) > 150 else "")
 
+        # Email-derived text is attacker-controlled: it is passed to the notifier
+        # process as data (env vars / argv), never interpolated into script source.
         try:
             if system == "Windows":
                 ps_script = (
-                    f"Add-Type -AssemblyName System.Windows.Forms; "
-                    f"$notify = New-Object System.Windows.Forms.NotifyIcon; "
-                    f"$notify.Icon = [System.Drawing.SystemIcons]::Information; "
-                    f"$notify.Visible = $True; "
-                    f"$notify.ShowBalloonTip(4000, '{safe_title}', '{safe_summary}', [System.Windows.Forms.ToolTipIcon]::Info)"
+                    "Add-Type -AssemblyName System.Windows.Forms; "
+                    "$notify = New-Object System.Windows.Forms.NotifyIcon; "
+                    "$notify.Icon = [System.Drawing.SystemIcons]::Information; "
+                    "$notify.Visible = $True; "
+                    "$notify.ShowBalloonTip(4000, $env:SENTINEL_NOTIFY_TITLE, $env:SENTINEL_NOTIFY_BODY, "
+                    "[System.Windows.Forms.ToolTipIcon]::Info)"
                 )
                 subprocess.run(
-                    ["powershell.exe", "-NoProfile", "-Command", ps_script],
+                    ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", ps_script],
                     capture_output=True,
                     timeout=5,
+                    env={**os.environ, "SENTINEL_NOTIFY_TITLE": title, "SENTINEL_NOTIFY_BODY": summary},
                 )
                 return {"channel": NotificationChannel.DESKTOP.value, "status": "sent"}
             elif system == "Darwin":
-                script = f'display notification "{safe_summary}" with title "{safe_title}"'
-                subprocess.run(["osascript", "-e", script], capture_output=True, timeout=5)
+                script = "on run argv\ndisplay notification (item 2 of argv) with title (item 1 of argv)\nend run"
+                subprocess.run(["osascript", "-e", script, title, summary], capture_output=True, timeout=5)
                 return {"channel": NotificationChannel.DESKTOP.value, "status": "sent"}
             elif system == "Linux":
-                subprocess.run(["notify-send", safe_title, safe_summary], capture_output=True, timeout=5)
+                subprocess.run(["notify-send", "--", title, summary], capture_output=True, timeout=5)
                 return {"channel": NotificationChannel.DESKTOP.value, "status": "sent"}
         except Exception as e:
             return {"channel": NotificationChannel.DESKTOP.value, "status": "failed", "error": str(e)}

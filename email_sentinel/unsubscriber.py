@@ -6,10 +6,10 @@ import re
 import smtplib
 from email.message import EmailMessage as PyEmailMessage
 from typing import List, Optional
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, urlparse
 
-from bs4 import BeautifulSoup
 import httpx
+from bs4 import BeautifulSoup
 
 from email_sentinel.config import Settings
 from email_sentinel.models import EmailMessage, UnsubscribeMethod, UnsubscribeResult
@@ -45,6 +45,7 @@ class EmailUnsubscriber:
                 method=UnsubscribeMethod.RFC8058_POST if email.list_unsubscribe_post else UnsubscribeMethod.URL_GET,
                 target=email.list_unsubscribe or "dry-run-target",
                 message="[DRY-RUN] Would have unsubscribed from sender.",
+                details={"dry_run": True},
             )
 
         # 2. Check for RFC 8058 One-Click Unsubscribe (POST)

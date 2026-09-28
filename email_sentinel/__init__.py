@@ -18,7 +18,7 @@ from email_sentinel.models import (
 from email_sentinel.notifier import Notifier
 from email_sentinel.unsubscriber import EmailUnsubscriber
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     "EmailClassifier",
     "EmailUnsubscriber",

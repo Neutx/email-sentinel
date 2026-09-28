@@ -1,6 +1,7 @@
 """Tests for Notifier dispatch."""
 
 from unittest.mock import MagicMock, patch
+
 from email_sentinel.config import Settings
 from email_sentinel.models import EmailCategory, NotificationPayload
 from email_sentinel.notifier import Notifier
@@ -90,3 +91,23 @@ def test_should_notify_filtering():
         subject="PR #5",
     )
     assert notifier.should_notify(project_payload) is True
+
+
+def test_desktop_notification_does_not_interpolate_email_text():
+    """Regression: a crafted subject must not be able to inject PowerShell."""
+    settings = Settings(DESKTOP_NOTIFY_ENABLED=True)
+    notifier = Notifier(settings)
+    evil = "x'; Remove-Item -Recurse C:/ ; '"
+    payload = NotificationPayload(
+        title=evil,
+        body=evil,
+        category=EmailCategory.URGENT_ACTIONABLE,
+        urgency=5,
+    )
+    with patch("platform.system", return_value="Windows"), patch("subprocess.run") as run:
+        result = notifier._send_desktop_notification(payload)
+    assert result["status"] == "sent"
+    args, kwargs = run.call_args
+    script = args[0][-1]
+    assert "Remove-Item" not in script
+    assert kwargs["env"]["SENTINEL_NOTIFY_TITLE"] == evil
