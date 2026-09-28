@@ -8,5 +8,7 @@ abstract final class Routes {
   static const projects = '/projects';
   static const control = '/control';
 
+  static String email(int id) => '/inbox/email/$id';
+
   static const tabs = [briefing, inbox, projects, control];
 }
