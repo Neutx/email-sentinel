@@ -6,6 +6,7 @@ import '../core/config/connection_config.dart';
 import '../core/providers.dart';
 import '../features/briefing/briefing_screen.dart';
 import '../features/control/control_screen.dart';
+import '../features/inbox/email_detail_sheet.dart';
 import '../features/inbox/inbox_screen.dart';
 import '../features/onboarding/connect_screen.dart';
 import '../features/projects/projects_screen.dart';
@@ -62,6 +63,14 @@ final routerProvider = Provider<GoRouter>((ref) {
               GoRoute(
                 path: Routes.inbox,
                 builder: (context, state) => const InboxScreen(),
+                routes: [
+                  GoRoute(
+                    path: 'email/:id',
+                    builder: (context, state) => EmailDetailScreen(
+                      id: int.parse(state.pathParameters['id']!),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
