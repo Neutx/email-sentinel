@@ -174,8 +174,10 @@ class InboxScreen extends ConsumerWidget {
               final widgets = <Widget>[];
               String? currentBucket;
               for (final email in state.items) {
+                // The feed is ordered by when Sentinel filed each email, so
+                // group by filing day too (received time is shown per tile).
                 final bucket = dayBucket(
-                  email.timestamp ?? now,
+                  email.createdAt ?? email.timestamp ?? now,
                   now,
                 ).toUpperCase();
                 if (bucket != currentBucket) {

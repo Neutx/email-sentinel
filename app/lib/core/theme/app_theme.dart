@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'sentinel_colors.dart';
 import 'tokens.dart';
@@ -54,6 +55,17 @@ abstract final class AppTheme {
     inverseSurface: Color(0xFFF1F5F9),
     onInverseSurface: Color(0xFF0F172A),
   );
+
+  /// Transparent, edge-to-edge system bars with icons that contrast the theme.
+  static SystemUiOverlayStyle overlayFor(Brightness brightness) =>
+      (brightness == Brightness.dark
+              ? SystemUiOverlayStyle.light
+              : SystemUiOverlayStyle.dark)
+          .copyWith(
+            statusBarColor: Colors.transparent,
+            systemNavigationBarColor: Colors.transparent,
+            systemNavigationBarContrastEnforced: false,
+          );
 
   static ThemeData light() => _build(lightScheme, SentinelColors.light);
   static ThemeData dark() => _build(darkScheme, SentinelColors.dark);
@@ -112,6 +124,7 @@ abstract final class AppTheme {
         elevation: 0,
         scrolledUnderElevation: 0,
         titleTextStyle: text.titleLarge,
+        systemOverlayStyle: overlayFor(scheme.brightness),
       ),
       chipTheme: ChipThemeData(
         labelStyle: text.labelLarge,

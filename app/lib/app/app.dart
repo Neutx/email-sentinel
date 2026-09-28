@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/preferences/app_preferences.dart';
@@ -17,6 +18,12 @@ class SentinelApp extends ConsumerWidget {
       darkTheme: AppTheme.dark(),
       themeMode: ref.watch(appPreferencesProvider).themeMode,
       routerConfig: ref.watch(routerProvider),
+      // Screens without an AppBar (Connect, splash) still get readable
+      // status bar icons.
+      builder: (context, child) => AnnotatedRegion<SystemUiOverlayStyle>(
+        value: AppTheme.overlayFor(Theme.of(context).brightness),
+        child: child ?? const SizedBox.shrink(),
+      ),
     );
   }
 }

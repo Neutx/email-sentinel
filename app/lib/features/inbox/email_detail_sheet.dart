@@ -393,6 +393,8 @@ Future<void> showEmailDetailSheet(
 }) {
   return showModalBottomSheet<void>(
     context: context,
+    // Above the shell's floating nav pill, not inside the tab navigator.
+    useRootNavigator: true,
     isScrollControlled: true,
     useSafeArea: true,
     builder: (context) => DraggableScrollableSheet(
@@ -407,7 +409,8 @@ Future<void> showEmailDetailSheet(
             Space.gutter(context),
             Space.s2,
             Space.gutter(context),
-            Space.s6,
+            // Keep the last action clear of the gesture bar.
+            Space.s6 + MediaQuery.viewPaddingOf(context).bottom,
           ),
           child: EmailDetailView(email: email, onChanged: onChanged),
         ),
