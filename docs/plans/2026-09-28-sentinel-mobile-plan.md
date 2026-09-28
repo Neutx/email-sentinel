@@ -19,6 +19,7 @@
 - Never hover/press "lift" effects. Press feedback = ink ripple.
 - Every async screen state handles loading (skeleton), empty (`EmptyState`), error (`ErrorState`, offline copy mentions Tailscale) and data.
 - Every icon-only button has `tooltip` (gives a semantics label). Touch targets ≥ 48 dp.
+- Every modal (`showModalBottomSheet`, `showDialog`) passes `useRootNavigator: true` so it renders above the floating nav pill, and scrollable sheet content pads its bottom by `MediaQuery.viewPaddingOf(context).bottom` (emulator review of Phase 2).
 - Every user-triggered API call (buttons, swipes, toggles, pull-to-refresh, Undo) goes through `guardAction(context, () => ...)` from `lib/core/utils/guard.dart` (added in Phase 2 review) so failures show `ApiException.userMessage` instead of throwing. Gesture callbacks (e.g. `Dismissible.confirmDismiss`) must only report success when the call succeeded. Add a widget test for the failure path of each new action.
 - Tests use the existing helpers: `test/helpers/fake_api.dart` (`FakeAdapter`, `FakeResponse`, `fixture`, `fixtureMap`, `testConfig`) and `test/helpers/pump_app.dart` (`testOverrides`, `pumpScreen`, `MemoryConnectionStore`). Fixtures in `test/fixtures/*.json` are generated from the real backend — do not hand-edit; add new canned bodies inline in tests.
 - Do not modify Phase 1 files except where a task explicitly says so.
