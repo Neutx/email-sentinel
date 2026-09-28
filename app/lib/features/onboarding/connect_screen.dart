@@ -56,6 +56,8 @@ class _ConnectScreenState extends ConsumerState<ConnectScreen> {
   void _showTokenHelp() {
     showModalBottomSheet<void>(
       context: context,
+      // Above the shell's floating nav pill, not inside the tab navigator.
+      useRootNavigator: true,
       builder: (context) => Padding(
         padding: const EdgeInsets.fromLTRB(Space.s6, 0, Space.s6, Space.s8),
         child: Column(

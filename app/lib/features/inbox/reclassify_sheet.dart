@@ -10,6 +10,8 @@ Future<EmailCategory?> showReclassifySheet(
 ) {
   return showModalBottomSheet<EmailCategory>(
     context: context,
+    // Above the shell's floating nav pill, not inside the tab navigator.
+    useRootNavigator: true,
     isScrollControlled: true,
     useSafeArea: true,
     builder: (context) => _ReclassifySheet(current: current),

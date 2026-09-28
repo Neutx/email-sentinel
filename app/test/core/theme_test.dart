@@ -53,4 +53,15 @@ void main() {
       });
     });
   }
+
+  test('status bar icons contrast with each theme', () {
+    expect(
+      AppTheme.light().appBarTheme.systemOverlayStyle?.statusBarIconBrightness,
+      Brightness.dark,
+    );
+    expect(
+      AppTheme.dark().appBarTheme.systemOverlayStyle?.statusBarIconBrightness,
+      Brightness.light,
+    );
+  });
 }
