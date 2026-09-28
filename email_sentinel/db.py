@@ -500,6 +500,16 @@ class Database:
                 )
             return [_normalize_row(row) for row in cur.fetchall()]
 
+    def get_known_project_names(self, limit: int = 40) -> List[str]:
+        """Existing project names, most recently active first."""
+        with self._get_connection() as conn:
+            rows = conn.execute(
+                """SELECT project_name FROM project_updates WHERE project_name IS NOT NULL
+                   GROUP BY project_name ORDER BY MAX(id) DESC LIMIT ?""",
+                (limit,),
+            ).fetchall()
+        return [r["project_name"] for r in rows]
+
     def get_project_summaries(self) -> List[Dict[str, Any]]:
         with self._get_connection() as conn:
             rows = conn.execute(

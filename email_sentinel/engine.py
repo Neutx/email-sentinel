@@ -78,7 +78,7 @@ class SentinelEngine:
             return ProcessedEmailResult(email=email, classification=classification, error="Already processed")
 
         # 2. Classification
-        classification = self.classifier.classify(email)
+        classification = self.classifier.classify(email, self.db.get_known_project_names())
         console.print(
             f"[cyan]Classified '[bold]{email.subject}[/bold]' as "
             f"[magenta]{classification.category.value}[/magenta] (Urgency: {classification.urgency}/5)[/cyan]"
@@ -260,7 +260,7 @@ class SentinelEngine:
                         if not em:
                             continue
 
-                        classification = self.classifier.classify(em)
+                        classification = self.classifier.classify(em, self.db.get_known_project_names())
                         email_id = self.db.save_email(em, classification, dry_run=dry_run)
                         stats["total"] += 1
 
