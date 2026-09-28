@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Optional
+from typing import Iterable, Optional, Sequence
 
 import httpx
 from rich.console import Console
@@ -14,19 +14,60 @@ from email_sentinel.models import ClassificationResult, EmailCategory, EmailMess
 
 console = Console()
 
+_PLACEHOLDER_PROJECTS = {"", "untitled", "general", "none", "null", "n/a", "na", "unknown", "project", "misc"}
+
+
+def _alnum(text: str) -> str:
+    return re.sub(r"[^a-z0-9]", "", text.lower())
+
+
+def _same_project(a: str, b: str) -> bool:
+    """'h-tool' == 'H Tool'; 'murphy-labs-website' == 'Neutx/murphy-labs-website'.
+
+    Owner prefixes are only ignored when one side has none, so 'acme/web' and
+    'neutx/web' stay distinct.
+    """
+    if _alnum(a) == _alnum(b):
+        return True
+    if ("/" in a) != ("/" in b):
+        return _alnum(a.split("/")[-1]) == _alnum(b.split("/")[-1])
+    return False
+
+
+def normalize_project_name(name: Optional[str], known: Iterable[str] = ()) -> Optional[str]:
+    """Map a classifier-supplied project name onto an existing canonical name.
+
+    LLMs spell the same project differently between emails ("h-tool", "H Tool");
+    reuse the first (most recent) known name that matches, and drop placeholders.
+    """
+    if name is None or name.strip().lower() in _PLACEHOLDER_PROJECTS or not _alnum(name):
+        return None
+    for existing in known:
+        if _same_project(name, existing):
+            return existing
+    return name.strip()
+
 
 class EmailClassifier:
     def __init__(self, settings: Settings):
         self.settings = settings
 
-    def classify(self, email: EmailMessage) -> ClassificationResult:
-        """Classify an email using LLM if configured, otherwise rule-based heuristics."""
+    def classify(self, email: EmailMessage, known_projects: Sequence[str] = ()) -> ClassificationResult:
+        """Classify an email using LLM if configured, otherwise rule-based heuristics.
+
+        `known_projects` (most recent first) lets the LLM reuse existing project names.
+        """
+        result = self._classify(email, known_projects)
+        result.project_name = normalize_project_name(result.project_name, known_projects)
+        return result
+
+    def _classify(self, email: EmailMessage, known_projects: Sequence[str]) -> ClassificationResult:
         # 1. Try LLM classification if provider configured and key exists
         if self.settings.LLM_PROVIDER != "rules_only" and (
             self.settings.LLM_API_KEY or self.settings.LLM_PROVIDER == "ollama"
         ):
             try:
-                llm_result = self._classify_with_llm(email)
+                llm_result = self._classify_with_llm(email, known_projects)
                 if llm_result:
                     # Enforce domain protection on LLM output
                     if self._is_protected(email) and llm_result.category in (
@@ -244,8 +285,11 @@ class EmailClassifier:
             reasoning="Standard incoming correspondence",
         )
 
-    def _classify_with_llm(self, email: EmailMessage) -> Optional[ClassificationResult]:
+    def _classify_with_llm(
+        self, email: EmailMessage, known_projects: Sequence[str] = ()
+    ) -> Optional[ClassificationResult]:
         """Classify using an LLM (OpenAI-compatible / OpenRouter / Gemini / Ollama)."""
+        known_list = ", ".join(list(known_projects)[:40]) or "(none yet)"
         prompt = f"""You are an expert AI email triage assistant.
 Analyze this email and classify it accurately into one of the following categories:
 - marketing_promo: Newsletters, promotional offers, marketing campaigns, commercial digests, sales pitches, bulk emails.
@@ -262,6 +306,10 @@ Date: {email.date.isoformat()}
 Has List-Unsubscribe Header: {bool(email.list_unsubscribe)}
 Body Excerpt:
 {(email.body_plain or email.body_html)[:1500]}
+
+Known project names (if this email is about one of them, set project_name to that exact spelling;
+use null when the email is not about a specific project or repository):
+{known_list}
 
 Respond ONLY with a JSON object matching this schema:
 {{

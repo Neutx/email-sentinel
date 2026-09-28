@@ -90,3 +90,33 @@ def test_protected_domain_not_marked_marketing():
     result = classifier.classify(email)
     # GitHub is a protected domain and contains dev keywords
     assert result.category == EmailCategory.PROJECT_UPDATE
+
+
+def test_project_names_are_normalized_onto_known_names():
+    from email_sentinel.classifier import normalize_project_name
+
+    known = ["Neutx/murphy-labs-website", "h-tool", "acme/web"]
+    assert normalize_project_name("H Tool", known) == "h-tool"
+    assert normalize_project_name("murphy-labs-website", known) == "Neutx/murphy-labs-website"
+    assert normalize_project_name("neutx/web", known) == "neutx/web"  # different owner stays distinct
+    assert normalize_project_name("Untitled", known) is None
+    assert normalize_project_name("  New Thing ", known) == "New Thing"
+
+
+def test_llm_prompt_lists_known_projects(monkeypatch):
+    import json as _json
+    from unittest.mock import MagicMock
+
+    settings = Settings(LLM_PROVIDER="gemini", LLM_API_KEY="k", LLM_MODEL="m")
+    captured = {}
+
+    def fake_post(self, url, headers=None, json=None):
+        captured["prompt"] = json["messages"][1]["content"]
+        body = {"category": "project_update", "urgency": 3, "summary": "s", "project_name": "H Tool"}
+        return MagicMock(status_code=200, json=lambda: {"choices": [{"message": {"content": _json.dumps(body)}}]})
+
+    monkeypatch.setattr("httpx.Client.post", fake_post)
+    email = EmailMessage(id="1", message_id="<x>", subject="Deploy", sender_email="ci@x.com")
+    result = EmailClassifier(settings).classify(email, known_projects=["h-tool"])
+    assert "h-tool" in captured["prompt"]
+    assert result.project_name == "h-tool"
