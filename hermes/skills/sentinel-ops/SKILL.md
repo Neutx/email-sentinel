@@ -1,7 +1,7 @@
 ---
 name: sentinel-ops
 description: Operate and troubleshoot the Email Sentinel backend.
-version: 0.1.0
+version: 0.2.0
 author: Neutx (Murphy Labs)
 license: MIT
 platforms: [windows]
@@ -20,18 +20,20 @@ running. Full runbook: `D:\Murphy Labs\email-sentinel\docs\ops\RUNBOOK.md`.
 
 | Thing | Value |
 |---|---|
-| Repo | `D:\Murphy Labs\email-sentinel` (GitHub `Neutx/email-sentinel`, private) |
-| Config | `D:\Murphy Labs\email-sentinel\.env` (secrets — never print values, never commit) |
+| Live checkout (production runs here) | `D:\Murphy Labs\email-sentinel-live` — always `origin/main`, never edit or switch branches there |
+| Dev repo (agents work here) | `D:\Murphy Labs\email-sentinel` (GitHub `Neutx/email-sentinel`, private) |
+| Deploy | `powershell -ExecutionPolicy Bypass -File "D:\Murphy Labs\email-sentinel\hermes\deploy.ps1"` after backend changes merge to main |
+| Config | `D:\Murphy Labs\email-sentinel-live\.env` (secrets — never print values, never commit) |
 | Database | `%USERPROFILE%\.email_sentinel\sentinel.db` (SQLite) |
 | API | `http://100.125.243.21:8765` (Tailscale only) — health: `GET /api/health` |
 | API logs | `%LOCALAPPDATA%\email-sentinel\logs\api.log` |
-| CLI | `uv run --project "D:\Murphy Labs\email-sentinel" email-sentinel <command>` |
+| CLI | `uv run --project "D:\Murphy Labs\email-sentinel-live" email-sentinel <command>` |
 | Cron jobs | `sentinel-watchdog` (5 min), `sentinel-scan` (5 min), `sentinel-briefing` (08:00, 18:00) |
 
 ## Common requests
 
-- **"Is Sentinel working?"** → `hermes cron list`, then `curl http://100.125.243.21:8765/api/health`, then `uv run --project "D:\Murphy Labs\email-sentinel" email-sentinel stats`. Report: API up/down, last scan time/status (`GET /api/status` with the bearer token read from `.env` — do not print the token), counts.
-- **"Scan now"** → `uv run --project "D:\Murphy Labs\email-sentinel" email-sentinel scan --json --trigger hermes-chat`. A `busy` status means another scan is running; wait a minute.
+- **"Is Sentinel working?"** → `hermes cron list`, then `curl http://100.125.243.21:8765/api/health`, then `uv run --project "D:\Murphy Labs\email-sentinel-live" email-sentinel stats`. Report: API up/down, last scan time/status (`GET /api/status` with the bearer token read from `.env` — do not print the token), counts.
+- **"Scan now"** → `uv run --project "D:\Murphy Labs\email-sentinel-live" email-sentinel scan --json --trigger hermes-chat`. A `busy` status means another scan is running; wait a minute.
 - **"Restart the API"** → find the listener: `Get-NetTCPConnection -LocalPort 8765 -State Listen` → `Stop-Process -Id <OwningProcess>`; then `hermes cron run sentinel-watchdog` (it restarts the server).
 - **"Dry run on/off"**, "stop trashing", "stop unsubscribing" → prefer telling the owner to use the app's Control tab. If asked to do it yourself: `PATCH /api/settings` with `{"dry_run": true}` (bearer token from `.env`).
 - **"What's the API token?"** → the owner may ask for it to set up the phone. Read `SENTINEL_API_TOKEN` from `.env` and give it to them only in a direct conversation with the owner, never in logs, commits, cron output or group chats.
